@@ -1,0 +1,89 @@
+﻿<UserControl x:Class="GUI.Views.MainView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:local="clr-namespace:GUI.Views"
+             xmlns:vm="clr-namespace:GUI.ViewModels"
+             mc:Ignorable="d"
+             AllowDrop="True"
+             d:DesignHeight="450" d:DesignWidth="800">
+
+    <UserControl.DataContext>
+        <vm:MainViewModel/>
+    </UserControl.DataContext>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="2"/>
+            <RowDefinition Height="2*"/>
+            <RowDefinition Height="30"/>
+            <RowDefinition Height="30"/>
+        </Grid.RowDefinitions>
+
+        <Grid Grid.Row="0" Margin="20" DragOver="OnDragOver" Drop="OnDrop" Background="Transparent">
+            <Rectangle Stroke="Gray"
+                       StrokeThickness="2"
+                       RadiusX="5"
+                       RadiusY="5"
+                       IsHitTestVisible="False"
+                       StrokeDashArray="4 2"/>
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                <Path Data="{StaticResource DragAndDrop}"
+                      Fill="White"
+                      HorizontalAlignment="Center"
+                      VerticalAlignment="Center"
+                      Margin="0,0,0,10"/>
+                <TextBlock HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Text="Drop binary file to analyse"/>
+            </StackPanel>
+        </Grid>
+
+        <Separator Grid.Row="1" Background="Gray" Height="2" VerticalAlignment="Center"/>
+
+        <local:LabelsView Grid.Row="2"/>
+
+        <TextBlock Grid.Row="3" Text="{Binding Log.Message}" FontWeight="Bold" Margin="10,0,10,0">
+            <TextBlock.Style>
+                <Style TargetType="TextBlock">
+                    <Setter Property="Foreground" Value="White"/>
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding Log.Level}" Value="Error">
+                            <Setter Property="Foreground" Value="Red"/>
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding Log.Level}" Value="Warning">
+                            <Setter Property="Foreground" Value="Orange"/>
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding Log.Level}" Value="Information">
+                            <Setter Property="Foreground" Value="Green"/>
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding Log.Level}" Value="Debug">
+                            <Setter Property="Foreground" Value="Gray"/>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </TextBlock.Style>
+        </TextBlock>
+
+        <ProgressBar Grid.Row="4" Value="25" Height="15" Margin="10,0,10,0">
+            <ProgressBar.Template>
+                <ControlTemplate TargetType="ProgressBar">
+                    <Grid>
+                        <Border Background="Gray" 
+                CornerRadius="7" 
+                BorderThickness="0"/>
+
+                        <Border Name="PART_Track" CornerRadius="7" ClipToBounds="True">
+                            <Border Name="PART_Indicator" 
+                    HorizontalAlignment="Left" 
+                    Background="PaleVioletRed"
+                    CornerRadius="7"/>
+                        </Border>
+                    </Grid>
+                </ControlTemplate>
+            </ProgressBar.Template>
+        </ProgressBar>
+    </Grid>
+</UserControl>
