@@ -4,5 +4,8 @@ namespace Noodle.Core.Services;
 
 public interface IAnalysisService
 {
-    Task<AnalysisResult> AnalyzeAsync(string filePath, CancellationToken ct = default);
+    Task<AnalysisResult> AnalyzeAsync(
+        string filePath,
+        IProgress<string>? progress = null,
+        CancellationToken ct = default);
 }

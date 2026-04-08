@@ -52,7 +52,7 @@ public sealed class StringExtractor
     {
         using var fs  = File.OpenRead(filePath);
         var buf = new byte[Math.Min(fs.Length, MaxBytesToScan)];
-        fs.Read(buf);
+        fs.ReadExactly(buf);
 
         var results = new List<string>();
         var current = new StringBuilder();

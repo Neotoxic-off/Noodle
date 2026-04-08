@@ -19,6 +19,7 @@
             <conv:SeverityToBgBrushConverter       x:Key="SevBgBrush"/>
             <conv:CategoryToIconConverter          x:Key="CatIcon"/>
             <conv:FileSizeConverter                x:Key="FileSize"/>
+            <conv:UnixTimestampConverter           x:Key="UnixTs"/>
 
             <!-- ViewModel → View wiring -->
             <DataTemplate DataType="{x:Type vm:DropViewModel}">
@@ -26,9 +27,6 @@
             </DataTemplate>
             <DataTemplate DataType="{x:Type vm:AnalysisViewModel}">
                 <views:AnalysisView/>
-            </DataTemplate>
-            <DataTemplate DataType="{x:Type vm:SettingsViewModel}">
-                <views:SettingsView/>
             </DataTemplate>
         </ResourceDictionary>
     </Application.Resources>

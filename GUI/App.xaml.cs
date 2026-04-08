@@ -1,5 +1,4 @@
 using Microsoft.Extensions.DependencyInjection;
-using Noodle.App.Services;
 using Noodle.App.ViewModels;
 using Noodle.Core.Services;
 using System.Windows;
@@ -16,13 +15,11 @@ public partial class App : Application
 
         var sc = new ServiceCollection();
         sc.AddSingleton<IAnalysisService, AnalysisService>();
-        sc.AddSingleton<ISettingsService, SettingsService>();
-        sc.AddSingleton<SettingsViewModel>();
         sc.AddSingleton<ShellViewModel>();
         _provider = sc.BuildServiceProvider();
 
-        var settings = _provider.GetRequiredService<ISettingsService>();
-        ThemeManager.Instance.Apply(settings.IsDarkTheme);
+        // Always dark — theme is hardcoded; no settings page needed
+        ThemeManager.Instance.Apply(true);
 
         var shell = _provider.GetRequiredService<ShellViewModel>();
         new MainWindow { DataContext = shell }.Show();

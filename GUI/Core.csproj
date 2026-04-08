@@ -19,14 +19,26 @@
 
   <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.4" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.5" />
+    <!--
+      Library.csproj uses a manual Reference (not ProjectReference) to avoid the WPF BAML
+      race condition, so transitive NuGet deps from Library never reach the GUI output.
+      Declare them here as runtime-only so their DLLs are copied without polluting the
+      GUI compile surface.
+    -->
+    <PackageReference Include="PeNet" Version="6.0.0">
+      <IncludeAssets>runtime</IncludeAssets>
+      <ExcludeAssets>compile;build;native;contentfiles;analyzers;buildtransitive</ExcludeAssets>
+    </PackageReference>
+    <PackageReference Include="Iced" Version="1.21.0">
+      <IncludeAssets>runtime</IncludeAssets>
+      <ExcludeAssets>compile;build;native;contentfiles;analyzers;buildtransitive</ExcludeAssets>
+    </PackageReference>
   </ItemGroup>
 
   <!-- Build Library but do not auto-reference its output (we manage that explicitly). -->
   <ItemGroup>
-    <ProjectReference Include="..\Noodle\Library.csproj"
-                      ReferenceOutputAssembly="false"
-                      Private="false"/>
+    <ProjectReference Include="..\Noodle\Library.csproj" ReferenceOutputAssembly="false" Private="false" />
   </ItemGroup>
 
   <!-- Reference the stable copy in our own refs/ subfolder. -->
@@ -42,18 +54,12 @@
     2. Copy its DLL into our obj/refs/ subfolder — a location the WPF BAML temp project
        will not clean — so it is always available for MarkupCompilePass1 and CoreCompile.
   -->
-  <Target Name="EnsureLibraryRef"
-          BeforeTargets="MarkupCompilePass1;ResolveAssemblyReferences">
-    <MSBuild Projects="..\Noodle\Library.csproj"
-             Targets="Build"
-             BuildInParallel="false"
-             Properties="Configuration=$(Configuration)"/>
-    <Message Text="EnsureLibraryRef: src=$(LibrarySrcDll) exists=$([System.IO.File]::Exists('$(LibrarySrcDll)'))" Importance="High"/>
-    <MakeDir Directories="$([System.IO.Path]::GetDirectoryName('$(LibraryRefDll)'))"/>
-    <Copy SourceFiles="$(LibrarySrcDll)"
-          DestinationFiles="$(LibraryRefDll)"
-          SkipUnchangedFiles="true"/>
-    <Message Text="EnsureLibraryRef: copied to $(LibraryRefDll)" Importance="High"/>
+  <Target Name="EnsureLibraryRef" BeforeTargets="MarkupCompilePass1;ResolveAssemblyReferences">
+    <MSBuild Projects="..\Noodle\Library.csproj" Targets="Build" BuildInParallel="false" Properties="Configuration=$(Configuration)" />
+    <Message Text="EnsureLibraryRef: src=$(LibrarySrcDll) exists=$([System.IO.File]::Exists('$(LibrarySrcDll)'))" Importance="High" />
+    <MakeDir Directories="$([System.IO.Path]::GetDirectoryName('$(LibraryRefDll)'))" />
+    <Copy SourceFiles="$(LibrarySrcDll)" DestinationFiles="$(LibraryRefDll)" SkipUnchangedFiles="true" />
+    <Message Text="EnsureLibraryRef: copied to $(LibraryRefDll)" Importance="High" />
   </Target>
 
 </Project>

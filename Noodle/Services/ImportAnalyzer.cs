@@ -56,7 +56,7 @@ public sealed class ImportAnalyzer
 
         new("Screen Capture",
             "Imports functions used to capture the desktop or windows.",
-            Severity.Suspicious, DetectionCategory.Injection,
+            Severity.Suspicious, DetectionCategory.ScreenCapture,
             ["BitBlt","PrintWindow","GetDC","CreateCompatibleBitmap","CreateCompatibleDC"]),
 
         new("Service Manipulation",

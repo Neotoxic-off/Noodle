@@ -9,7 +9,7 @@
              Background="{DynamicResource Br.BgApp}">
 
     <Grid>
-        <Grid VerticalAlignment="Center" HorizontalAlignment="Center" Width="460">
+        <Grid VerticalAlignment="Center" HorizontalAlignment="Center" Width="480">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="16"/>
@@ -17,59 +17,69 @@
             </Grid.RowDefinitions>
 
             <!-- Drop zone -->
-            <Grid Grid.Row="0" Height="300">
-                <!-- Dashed border via Rectangle -->
+            <Grid Grid.Row="0" Height="320">
                 <Rectangle x:Name="DropRect"
                            Stroke="{DynamicResource Br.DropBorder}"
-                           StrokeDashArray="6,4"
-                           StrokeThickness="2"
+                           StrokeDashArray="4,3"
+                           StrokeThickness="1"
                            Fill="{DynamicResource Br.DropBg}"
-                           RadiusX="20" RadiusY="20"/>
+                           RadiusX="6" RadiusY="6"/>
 
-                <!-- Normal state -->
+                <!-- Idle state -->
                 <StackPanel VerticalAlignment="Center"
                             HorizontalAlignment="Center"
                             Visibility="{Binding IsAnalyzing, Converter={StaticResource InvBoolToVis}}">
 
                     <TextBlock Text="&#xE896;"
                                FontFamily="Segoe MDL2 Assets"
-                               FontSize="52"
-                               Foreground="{DynamicResource Br.Text.Tertiary}"
+                               FontSize="48"
+                               Foreground="{DynamicResource Br.Accent}"
                                HorizontalAlignment="Center"
-                               Margin="0,0,0,16"/>
+                               Opacity="0.4"
+                               Margin="0,0,0,20"/>
 
                     <TextBlock Text="{Binding StatusText}"
-                               Style="{StaticResource Text.Subheading}"
+                               FontFamily="Consolas, Courier New"
+                               FontSize="13"
+                               FontWeight="Bold"
+                               Foreground="{DynamicResource Br.Accent}"
                                HorizontalAlignment="Center"
-                               Margin="0,0,0,6"/>
+                               Margin="0,0,0,4"/>
 
-                    <TextBlock Text="or"
-                               Style="{StaticResource Text.Secondary}"
+                    <TextBlock Text="// drag a file here, or browse below"
+                               FontFamily="Consolas, Courier New"
+                               FontSize="10"
+                               Foreground="{DynamicResource Br.Text.Secondary}"
                                HorizontalAlignment="Center"
-                               Margin="0,0,0,14"/>
+                               Margin="0,0,0,20"/>
 
-                    <Button Content="Browse File"
-                            Style="{StaticResource Btn.Primary}"
+                    <Button Content="&gt; BROWSE FILE"
+                            Style="{StaticResource Btn.Ghost}"
                             Command="{Binding BrowseFileCommand}"
                             HorizontalAlignment="Center"/>
                 </StackPanel>
 
-                <!-- Analyzing state -->
+                <!-- Scanning state — live step log -->
                 <StackPanel VerticalAlignment="Center"
                             HorizontalAlignment="Center"
+                            Width="380"
                             Visibility="{Binding IsAnalyzing, Converter={StaticResource BoolToVis}}">
 
+                    <!-- Animated scan bar -->
                     <ProgressBar IsIndeterminate="True"
-                                 Width="220" Height="4"
-                                 Background="{DynamicResource Br.BgElevated}"
+                                 Width="360" Height="2"
+                                 Background="Transparent"
                                  Foreground="{DynamicResource Br.Accent}"
                                  BorderThickness="0"
-                                 Margin="0,0,0,16"/>
+                                 Margin="0,0,0,20"/>
 
+                    <!-- Step text — monospace terminal feel -->
                     <TextBlock Text="{Binding StatusText}"
-                               Style="{StaticResource Text.Body}"
-                               HorizontalAlignment="Center"
-                               Foreground="{DynamicResource Br.Text.Secondary}"/>
+                               FontFamily="Consolas, Courier New"
+                               FontSize="11"
+                               Foreground="{DynamicResource Br.Accent}"
+                               HorizontalAlignment="Left"
+                               TextWrapping="Wrap"/>
                 </StackPanel>
             </Grid>
 
@@ -79,18 +89,20 @@
                     Background="{DynamicResource Br.DangerBg}"
                     BorderBrush="{DynamicResource Br.Danger}"
                     BorderThickness="1"
-                    CornerRadius="10"
-                    Padding="16,10">
+                    CornerRadius="4"
+                    Padding="14,10">
                 <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="&#xE783;"
-                               FontFamily="Segoe MDL2 Assets"
-                               FontSize="14"
+                    <TextBlock Text="[ERR]"
+                               FontFamily="Consolas, Courier New"
+                               FontSize="11"
+                               FontWeight="Bold"
                                Foreground="{DynamicResource Br.Danger}"
                                VerticalAlignment="Top"
                                Margin="0,0,10,0"/>
                     <TextBlock Text="{Binding ErrorText}"
                                Foreground="{DynamicResource Br.Danger}"
-                               Style="{StaticResource Text.Body}"
+                               FontFamily="Consolas, Courier New"
+                               FontSize="11"
                                TextWrapping="Wrap"/>
                 </StackPanel>
             </Border>

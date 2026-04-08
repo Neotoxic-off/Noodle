@@ -3,47 +3,48 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
     <!-- ══════════════════════════════════════════
-         TYPOGRAPHY
+         TYPOGRAPHY  —  DedSec / terminal aesthetic
+         Primary font: Consolas (monospace, pixel-y)
     ══════════════════════════════════════════ -->
 
     <Style x:Key="Text.Heading" TargetType="TextBlock">
-        <Setter Property="FontFamily" Value="Segoe UI Variable Display, Segoe UI"/>
-        <Setter Property="FontSize"   Value="22"/>
-        <Setter Property="FontWeight" Value="SemiBold"/>
-        <Setter Property="Foreground" Value="{DynamicResource Br.Text.Primary}"/>
+        <Setter Property="FontFamily"   Value="Consolas, Courier New"/>
+        <Setter Property="FontSize"     Value="20"/>
+        <Setter Property="FontWeight"   Value="Bold"/>
+        <Setter Property="Foreground"   Value="{DynamicResource Br.Text.Primary}"/>
         <Setter Property="TextWrapping" Value="NoWrap"/>
     </Style>
 
     <Style x:Key="Text.Subheading" TargetType="TextBlock">
-        <Setter Property="FontFamily" Value="Segoe UI Variable, Segoe UI"/>
-        <Setter Property="FontSize"   Value="15"/>
-        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="FontFamily" Value="Consolas, Courier New"/>
+        <Setter Property="FontSize"   Value="13"/>
+        <Setter Property="FontWeight" Value="Bold"/>
         <Setter Property="Foreground" Value="{DynamicResource Br.Text.Primary}"/>
     </Style>
 
     <Style x:Key="Text.Body" TargetType="TextBlock">
-        <Setter Property="FontFamily" Value="Segoe UI Variable, Segoe UI"/>
-        <Setter Property="FontSize"   Value="13"/>
+        <Setter Property="FontFamily" Value="Consolas, Courier New"/>
+        <Setter Property="FontSize"   Value="12"/>
         <Setter Property="FontWeight" Value="Normal"/>
         <Setter Property="Foreground" Value="{DynamicResource Br.Text.Primary}"/>
     </Style>
 
     <Style x:Key="Text.Secondary" TargetType="TextBlock">
-        <Setter Property="FontFamily" Value="Segoe UI Variable, Segoe UI"/>
-        <Setter Property="FontSize"   Value="13"/>
-        <Setter Property="Foreground" Value="{DynamicResource Br.Text.Secondary}"/>
-    </Style>
-
-    <Style x:Key="Text.Caption" TargetType="TextBlock">
-        <Setter Property="FontFamily" Value="Segoe UI Variable, Segoe UI"/>
+        <Setter Property="FontFamily" Value="Consolas, Courier New"/>
         <Setter Property="FontSize"   Value="11"/>
         <Setter Property="Foreground" Value="{DynamicResource Br.Text.Secondary}"/>
     </Style>
 
-    <Style x:Key="Text.Code" TargetType="TextBlock">
-        <Setter Property="FontFamily" Value="Cascadia Mono, Consolas, Courier New"/>
-        <Setter Property="FontSize"   Value="12"/>
+    <Style x:Key="Text.Caption" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="Consolas, Courier New"/>
+        <Setter Property="FontSize"   Value="10"/>
         <Setter Property="Foreground" Value="{DynamicResource Br.Text.Secondary}"/>
+    </Style>
+
+    <Style x:Key="Text.Code" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="Consolas, Courier New"/>
+        <Setter Property="FontSize"   Value="11"/>
+        <Setter Property="Foreground" Value="{DynamicResource Br.Accent}"/>
     </Style>
 
     <!-- ══════════════════════════════════════════
@@ -51,29 +52,29 @@
     ══════════════════════════════════════════ -->
 
     <Style x:Key="Btn.Primary" TargetType="Button">
-        <Setter Property="Background"       Value="{DynamicResource Br.Accent}"/>
-        <Setter Property="Foreground"       Value="White"/>
-        <Setter Property="BorderThickness"  Value="0"/>
-        <Setter Property="Padding"          Value="20,9"/>
-        <Setter Property="FontFamily"       Value="Segoe UI Variable, Segoe UI"/>
-        <Setter Property="FontSize"         Value="13"/>
-        <Setter Property="FontWeight"       Value="Medium"/>
-        <Setter Property="Cursor"           Value="Hand"/>
+        <Setter Property="Background"      Value="{DynamicResource Br.Accent}"/>
+        <Setter Property="Foreground"      Value="#000000"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Padding"         Value="20,9"/>
+        <Setter Property="FontFamily"      Value="Consolas, Courier New"/>
+        <Setter Property="FontSize"        Value="12"/>
+        <Setter Property="FontWeight"      Value="Bold"/>
+        <Setter Property="Cursor"          Value="Hand"/>
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
                     <Border x:Name="Root"
                             Background="{TemplateBinding Background}"
-                            CornerRadius="10"
+                            CornerRadius="4"
                             Padding="{TemplateBinding Padding}">
                         <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="Root" Property="Opacity" Value="0.82"/>
+                            <Setter TargetName="Root" Property="Opacity" Value="0.80"/>
                         </Trigger>
                         <Trigger Property="IsPressed" Value="True">
-                            <Setter TargetName="Root" Property="Opacity" Value="0.65"/>
+                            <Setter TargetName="Root" Property="Opacity" Value="0.60"/>
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter TargetName="Root" Property="Opacity" Value="0.35"/>
@@ -85,15 +86,15 @@
     </Style>
 
     <Style x:Key="Btn.Ghost" TargetType="Button">
-        <Setter Property="Background"       Value="Transparent"/>
-        <Setter Property="Foreground"       Value="{DynamicResource Br.Accent}"/>
-        <Setter Property="BorderBrush"      Value="{DynamicResource Br.Border}"/>
-        <Setter Property="BorderThickness"  Value="1"/>
-        <Setter Property="Padding"          Value="16,8"/>
-        <Setter Property="FontFamily"       Value="Segoe UI Variable, Segoe UI"/>
-        <Setter Property="FontSize"         Value="13"/>
-        <Setter Property="FontWeight"       Value="Medium"/>
-        <Setter Property="Cursor"           Value="Hand"/>
+        <Setter Property="Background"      Value="Transparent"/>
+        <Setter Property="Foreground"      Value="{DynamicResource Br.Accent}"/>
+        <Setter Property="BorderBrush"     Value="{DynamicResource Br.Accent}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="Padding"         Value="14,7"/>
+        <Setter Property="FontFamily"      Value="Consolas, Courier New"/>
+        <Setter Property="FontSize"        Value="11"/>
+        <Setter Property="FontWeight"      Value="Bold"/>
+        <Setter Property="Cursor"          Value="Hand"/>
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
@@ -101,7 +102,7 @@
                             Background="{TemplateBinding Background}"
                             BorderBrush="{TemplateBinding BorderBrush}"
                             BorderThickness="{TemplateBinding BorderThickness}"
-                            CornerRadius="10"
+                            CornerRadius="4"
                             Padding="{TemplateBinding Padding}">
                         <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </Border>
@@ -119,16 +120,18 @@
     </Style>
 
     <Style x:Key="Btn.Nav" TargetType="Button">
-        <Setter Property="Background"      Value="Transparent"/>
-        <Setter Property="BorderThickness" Value="0"/>
-        <Setter Property="Cursor"          Value="Hand"/>
+        <Setter Property="Background"                 Value="Transparent"/>
+        <Setter Property="BorderThickness"            Value="0"/>
+        <Setter Property="Cursor"                     Value="Hand"/>
         <Setter Property="HorizontalContentAlignment" Value="Left"/>
+        <Setter Property="FontFamily"                 Value="Consolas, Courier New"/>
+        <Setter Property="FontSize"                   Value="12"/>
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
                     <Border x:Name="Root"
                             Background="Transparent"
-                            CornerRadius="10"
+                            CornerRadius="4"
                             Margin="8,1"
                             Padding="12,10">
                         <ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center"/>
@@ -150,22 +153,17 @@
         <Setter Property="Background"      Value="Transparent"/>
         <Setter Property="BorderThickness" Value="0"/>
         <Setter Property="Cursor"          Value="Hand"/>
-        <Setter Property="Width"  Value="32"/>
-        <Setter Property="Height" Value="32"/>
+        <Setter Property="Width"           Value="32"/>
+        <Setter Property="Height"          Value="32"/>
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
-                    <Border x:Name="Root"
-                            Background="Transparent"
-                            CornerRadius="8">
+                    <Border x:Name="Root" Background="Transparent" CornerRadius="4">
                         <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
                             <Setter TargetName="Root" Property="Background" Value="{DynamicResource Br.BgHover}"/>
-                        </Trigger>
-                        <Trigger Property="IsPressed" Value="True">
-                            <Setter TargetName="Root" Property="Background" Value="{DynamicResource Br.BgSelected}"/>
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
@@ -229,16 +227,16 @@
     ══════════════════════════════════════════ -->
 
     <Style x:Key="Card" TargetType="Border">
-        <Setter Property="Background"    Value="{DynamicResource Br.BgCard}"/>
-        <Setter Property="BorderBrush"   Value="{DynamicResource Br.Border}"/>
+        <Setter Property="Background"      Value="{DynamicResource Br.BgCard}"/>
+        <Setter Property="BorderBrush"     Value="{DynamicResource Br.Border}"/>
         <Setter Property="BorderThickness" Value="1"/>
-        <Setter Property="CornerRadius"  Value="14"/>
-        <Setter Property="Padding"       Value="20"/>
-        <Setter Property="Margin"        Value="0,0,0,12"/>
+        <Setter Property="CornerRadius"    Value="6"/>
+        <Setter Property="Padding"         Value="18"/>
+        <Setter Property="Margin"          Value="0,0,0,10"/>
     </Style>
 
     <!-- ══════════════════════════════════════════
-         SCROLLBAR — minimal/modern
+         SCROLLBAR — minimal
     ══════════════════════════════════════════ -->
 
     <Style x:Key="ScrollBar.Thumb" TargetType="Thumb">
@@ -247,7 +245,7 @@
                 <ControlTemplate TargetType="Thumb">
                     <Border x:Name="Root"
                             Background="{DynamicResource Br.ScrollThumb}"
-                            CornerRadius="3"
+                            CornerRadius="2"
                             Margin="2"/>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
@@ -261,7 +259,7 @@
 
     <Style TargetType="ScrollBar">
         <Setter Property="Background" Value="Transparent"/>
-        <Setter Property="Width"  Value="7"/>
+        <Setter Property="Width"      Value="6"/>
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="ScrollBar">
@@ -292,13 +290,9 @@
                             <ColumnDefinition/>
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions>
-                            <RowDefinition/>
-                            <RowDefinition Height="Auto"/>
-                        </Grid.RowDefinitions>
-                        <ScrollContentPresenter Grid.Column="0" Grid.Row="0"/>
+                        <ScrollContentPresenter Grid.Column="0"/>
                         <ScrollBar x:Name="PART_VerticalScrollBar"
-                                   Grid.Column="1" Grid.Row="0"
+                                   Grid.Column="1"
                                    Orientation="Vertical"
                                    Value="{TemplateBinding VerticalOffset}"
                                    Maximum="{TemplateBinding ScrollableHeight}"
@@ -311,41 +305,18 @@
     </Style>
 
     <!-- ══════════════════════════════════════════
-         TOGGLE SWITCH
+         TOOLTIP — dark terminal style
     ══════════════════════════════════════════ -->
 
-    <Style x:Key="ToggleSwitch" TargetType="CheckBox">
-        <Setter Property="Template">
-            <Setter.Value>
-                <ControlTemplate TargetType="CheckBox">
-                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                        <Border x:Name="Track"
-                                Width="42" Height="24"
-                                CornerRadius="12"
-                                Background="{DynamicResource Br.BgElevated}">
-                            <Border x:Name="Thumb"
-                                    Width="18" Height="18"
-                                    CornerRadius="9"
-                                    Background="{DynamicResource Br.Text.Secondary}"
-                                    HorizontalAlignment="Left"
-                                    Margin="3,0,0,0"/>
-                        </Border>
-                        <ContentPresenter Margin="10,0,0,0" VerticalAlignment="Center"/>
-                    </StackPanel>
-                    <ControlTemplate.Triggers>
-                        <Trigger Property="IsChecked" Value="True">
-                            <Setter TargetName="Track" Property="Background" Value="{DynamicResource Br.Accent}"/>
-                            <Setter TargetName="Thumb" Property="Background" Value="White"/>
-                            <Setter TargetName="Thumb" Property="HorizontalAlignment" Value="Right"/>
-                            <Setter TargetName="Thumb" Property="Margin" Value="0,0,3,0"/>
-                        </Trigger>
-                        <Trigger Property="IsMouseOver" Value="True">
-                            <Setter Property="Cursor" Value="Hand"/>
-                        </Trigger>
-                    </ControlTemplate.Triggers>
-                </ControlTemplate>
-            </Setter.Value>
-        </Setter>
+    <Style TargetType="ToolTip">
+        <Setter Property="Background"      Value="#0D1A0D"/>
+        <Setter Property="Foreground"      Value="{DynamicResource Br.Text.Primary}"/>
+        <Setter Property="BorderBrush"     Value="{DynamicResource Br.Border}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="Padding"         Value="10,6"/>
+        <Setter Property="FontFamily"      Value="Consolas, Courier New"/>
+        <Setter Property="FontSize"        Value="11"/>
+        <Setter Property="HasDropShadow"   Value="False"/>
     </Style>
 
 </ResourceDictionary>

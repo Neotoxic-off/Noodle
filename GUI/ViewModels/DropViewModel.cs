@@ -11,9 +11,9 @@ public sealed partial class DropViewModel : ObservableObject
     private readonly ShellViewModel   _shell;
 
     [ObservableProperty] private bool   _isAnalyzing;
-    [ObservableProperty] private string _statusText  = "Drop any file to analyze";
+    [ObservableProperty] private string _statusText = "DROP ANY FILE TO ANALYZE";
     [ObservableProperty] private bool   _hasError;
-    [ObservableProperty] private string _errorText   = string.Empty;
+    [ObservableProperty] private string _errorText  = string.Empty;
 
     public DropViewModel(IAnalysisService analysis, ShellViewModel shell)
     {
@@ -24,19 +24,22 @@ public sealed partial class DropViewModel : ObservableObject
     [RelayCommand]
     private async Task DropFileAsync(string path)
     {
-        HasError     = false;
-        IsAnalyzing  = true;
-        StatusText   = $"Analyzing  {Path.GetFileName(path)}…";
+        HasError    = false;
+        IsAnalyzing = true;
+        StatusText  = $"// {Path.GetFileName(path)}";
+
+        var progress = new Progress<string>(msg => StatusText = msg);
+
         try
         {
-            var result = await _analysis.AnalyzeAsync(path);
+            var result = await _analysis.AnalyzeAsync(path, progress);
             _shell.NavigateToAnalysis(result);
         }
         catch (Exception ex)
         {
-            HasError  = true;
-            ErrorText = ex.Message;
-            StatusText = "Analysis failed";
+            HasError   = true;
+            ErrorText  = ex.Message;
+            StatusText = "[ERROR] Analysis failed";
         }
         finally
         {

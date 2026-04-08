@@ -11,5 +11,11 @@ public enum DetectionCategory
     Keylogger,
     Privilege,
     Anomaly,
-    Yara
+    Yara,
+    AsmPattern,
+    Signature,
+    Persistence,
+    Evasion,
+    Ransomware,
+    ScreenCapture,
 }
