@@ -1,0 +1,78 @@
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- ─── Color palette ─── -->
+    <Color x:Key="Col.BgApp">#F2F2F7</Color>
+    <Color x:Key="Col.BgSidebar">#FFFFFF</Color>
+    <Color x:Key="Col.BgCard">#FFFFFF</Color>
+    <Color x:Key="Col.BgElevated">#E5E5EA</Color>
+    <Color x:Key="Col.BgHover">#EBEBF0</Color>
+    <Color x:Key="Col.BgSelected">#D1D1D6</Color>
+
+    <Color x:Key="Col.Text.Primary">#000000</Color>
+    <Color x:Key="Col.Text.Secondary">#6C6C70</Color>
+    <Color x:Key="Col.Text.Tertiary">#AEAEB2</Color>
+
+    <Color x:Key="Col.Border">#C6C6C8</Color>
+    <Color x:Key="Col.Separator">#E5E5EA</Color>
+
+    <Color x:Key="Col.Accent">#007AFF</Color>
+    <Color x:Key="Col.Danger">#FF3B30</Color>
+    <Color x:Key="Col.Warning">#FF9500</Color>
+    <Color x:Key="Col.Success">#34C759</Color>
+    <Color x:Key="Col.Info">#007AFF</Color>
+
+    <Color x:Key="Col.DangerBg">#18FF3B30</Color>
+    <Color x:Key="Col.WarningBg">#18FF9500</Color>
+    <Color x:Key="Col.SuccessBg">#1834C759</Color>
+    <Color x:Key="Col.InfoBg">#18007AFF</Color>
+
+    <!-- ─── Brushes ─── -->
+    <SolidColorBrush x:Key="Br.BgApp"      Color="{StaticResource Col.BgApp}"/>
+    <SolidColorBrush x:Key="Br.BgSidebar"  Color="{StaticResource Col.BgSidebar}"/>
+    <SolidColorBrush x:Key="Br.BgCard"     Color="{StaticResource Col.BgCard}"/>
+    <SolidColorBrush x:Key="Br.BgElevated" Color="{StaticResource Col.BgElevated}"/>
+    <SolidColorBrush x:Key="Br.BgHover"    Color="{StaticResource Col.BgHover}"/>
+    <SolidColorBrush x:Key="Br.BgSelected" Color="{StaticResource Col.BgSelected}"/>
+
+    <SolidColorBrush x:Key="Br.Text.Primary"   Color="{StaticResource Col.Text.Primary}"/>
+    <SolidColorBrush x:Key="Br.Text.Secondary"  Color="{StaticResource Col.Text.Secondary}"/>
+    <SolidColorBrush x:Key="Br.Text.Tertiary"   Color="{StaticResource Col.Text.Tertiary}"/>
+
+    <SolidColorBrush x:Key="Br.Border"    Color="{StaticResource Col.Border}"/>
+    <SolidColorBrush x:Key="Br.Separator" Color="{StaticResource Col.Separator}"/>
+
+    <SolidColorBrush x:Key="Br.Accent"  Color="{StaticResource Col.Accent}"/>
+    <SolidColorBrush x:Key="Br.Danger"  Color="{StaticResource Col.Danger}"/>
+    <SolidColorBrush x:Key="Br.Warning" Color="{StaticResource Col.Warning}"/>
+    <SolidColorBrush x:Key="Br.Success" Color="{StaticResource Col.Success}"/>
+    <SolidColorBrush x:Key="Br.Info"    Color="{StaticResource Col.Info}"/>
+
+    <SolidColorBrush x:Key="Br.DangerBg"  Color="{StaticResource Col.DangerBg}"/>
+    <SolidColorBrush x:Key="Br.WarningBg" Color="{StaticResource Col.WarningBg}"/>
+    <SolidColorBrush x:Key="Br.SuccessBg" Color="{StaticResource Col.SuccessBg}"/>
+    <SolidColorBrush x:Key="Br.InfoBg"    Color="{StaticResource Col.InfoBg}"/>
+
+    <SolidColorBrush x:Key="Br.Transparent" Color="Transparent"/>
+
+    <!-- ─── DropZone ─── -->
+    <Color x:Key="Col.DropBorder">#C6C6C8</Color>
+    <SolidColorBrush x:Key="Br.DropBorder"     Color="{StaticResource Col.DropBorder}"/>
+    <SolidColorBrush x:Key="Br.DropBorderHover" Color="{StaticResource Col.Accent}"/>
+    <SolidColorBrush x:Key="Br.DropBg"          Color="#08000000"/>
+    <SolidColorBrush x:Key="Br.DropBgHover"     Color="#08007AFF"/>
+
+    <!-- ─── Window chrome ─── -->
+    <SolidColorBrush x:Key="Br.TitleBar"     Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="Br.TitleBarText" Color="{StaticResource Col.Text.Primary}"/>
+
+    <!-- ─── Scrollbar ─── -->
+    <SolidColorBrush x:Key="Br.ScrollThumb" Color="#AEAEB2"/>
+    <SolidColorBrush x:Key="Br.ScrollBg"    Color="Transparent"/>
+
+    <!-- ─── Nav item ─── -->
+    <SolidColorBrush x:Key="Br.NavIcon.Active"   Color="{StaticResource Col.Accent}"/>
+    <SolidColorBrush x:Key="Br.NavIcon.Inactive" Color="{StaticResource Col.Text.Secondary}"/>
+
+</ResourceDictionary>

@@ -1,0 +1,378 @@
+<UserControl x:Class="Noodle.App.Views.AnalysisView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctrl="clr-namespace:Noodle.App.Controls"
+             Background="{DynamicResource Br.BgApp}">
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="28,24,28,32">
+
+            <!-- ─── Header ─── -->
+            <Grid Margin="0,0,0,20">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0" Orientation="Vertical">
+                    <TextBlock Text="{Binding Result.Metadata.FileName}"
+                               Style="{StaticResource Text.Heading}"
+                               TextTrimming="CharacterEllipsis"/>
+                    <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                        <ctrl:DetectionTag Label="{Binding OverallLabel}"
+                                           Severity="{Binding OverallSeverity}"
+                                           Margin="0,0,10,0"/>
+                        <TextBlock Text="{Binding Result.Metadata.FileType}"
+                                   Style="{StaticResource Text.Caption}"
+                                   VerticalAlignment="Center"/>
+                    </StackPanel>
+                </StackPanel>
+
+                <Button Grid.Column="1"
+                        Content="Scan Another"
+                        Style="{StaticResource Btn.Ghost}"
+                        Command="{Binding ScanAnotherCommand}"
+                        VerticalAlignment="Top"/>
+            </Grid>
+
+            <!-- ─── File Metadata card ─── -->
+            <Border Style="{StaticResource Card}">
+                <StackPanel>
+                    <TextBlock Text="File" Style="{StaticResource Text.Subheading}" Margin="0,0,0,14"/>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="110"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="110"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="8"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="8"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Size"
+                                   Style="{StaticResource Text.Caption}"/>
+                        <TextBlock Grid.Row="0" Grid.Column="1"
+                                   Text="{Binding Result.Metadata.FileSize, Converter={StaticResource FileSize}}"
+                                   Style="{StaticResource Text.Body}"/>
+
+                        <TextBlock Grid.Row="0" Grid.Column="2" Text="Magic"
+                                   Style="{StaticResource Text.Caption}"/>
+                        <TextBlock Grid.Row="0" Grid.Column="3"
+                                   Text="{Binding Result.Metadata.MagicBytes}"
+                                   Style="{StaticResource Text.Code}"/>
+
+                        <TextBlock Grid.Row="2" Grid.Column="0" Text="MD5"
+                                   Style="{StaticResource Text.Caption}"/>
+                        <TextBlock Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="3"
+                                   Text="{Binding Result.Metadata.MD5}"
+                                   Style="{StaticResource Text.Code}"
+                                   TextWrapping="Wrap"/>
+
+                        <TextBlock Grid.Row="4" Grid.Column="0" Text="SHA-256"
+                                   Style="{StaticResource Text.Caption}"/>
+                        <TextBlock Grid.Row="4" Grid.Column="1" Grid.ColumnSpan="3"
+                                   Text="{Binding Result.Metadata.SHA256}"
+                                   Style="{StaticResource Text.Code}"
+                                   TextWrapping="Wrap"/>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- ─── PE Info card ─── -->
+            <Border Style="{StaticResource Card}"
+                    Visibility="{Binding Result.IsPE, Converter={StaticResource BoolToVis}}">
+                <StackPanel>
+                    <TextBlock Text="PE Binary" Style="{StaticResource Text.Subheading}" Margin="0,0,0,14"/>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="110"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="110"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="8"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="8"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Kind"
+                                   Style="{StaticResource Text.Caption}"/>
+                        <TextBlock Grid.Row="0" Grid.Column="1"
+                                   Text="{Binding Result.PE.Kind}"
+                                   Style="{StaticResource Text.Body}"/>
+
+                        <TextBlock Grid.Row="0" Grid.Column="2" Text="Arch"
+                                   Style="{StaticResource Text.Caption}"/>
+                        <TextBlock Grid.Row="0" Grid.Column="3"
+                                   Text="{Binding Result.PE.Architecture}"
+                                   Style="{StaticResource Text.Body}"/>
+
+                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Subsystem"
+                                   Style="{StaticResource Text.Caption}"/>
+                        <TextBlock Grid.Row="2" Grid.Column="1"
+                                   Text="{Binding Result.PE.Subsystem}"
+                                   Style="{StaticResource Text.Body}"/>
+
+                        <TextBlock Grid.Row="2" Grid.Column="2" Text="Entry Point"
+                                   Style="{StaticResource Text.Caption}"/>
+                        <TextBlock Grid.Row="2" Grid.Column="3"
+                                   Text="{Binding Result.PE.EntryPoint, StringFormat=0x{0:X8}}"
+                                   Style="{StaticResource Text.Code}"/>
+
+                        <TextBlock Grid.Row="4" Grid.Column="0" Text="Imports"
+                                   Style="{StaticResource Text.Caption}"/>
+                        <TextBlock Grid.Row="4" Grid.Column="1"
+                                   Text="{Binding Result.PE.Imports.Length}"
+                                   Style="{StaticResource Text.Body}"/>
+
+                        <TextBlock Grid.Row="4" Grid.Column="2" Text="Exports"
+                                   Style="{StaticResource Text.Caption}"/>
+                        <TextBlock Grid.Row="4" Grid.Column="3"
+                                   Text="{Binding Result.PE.Exports.Length}"
+                                   Style="{StaticResource Text.Body}"/>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- ─── Dangerous detections ─── -->
+            <Border Style="{StaticResource Card}"
+                    Visibility="{Binding HasDangerous, Converter={StaticResource BoolToVis}}"
+                    BorderBrush="{DynamicResource Br.Danger}">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                        <TextBlock Text="&#xE783;" FontFamily="Segoe MDL2 Assets" FontSize="14"
+                                   Foreground="{DynamicResource Br.Danger}"
+                                   VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <TextBlock Text="Dangerous" Style="{StaticResource Text.Subheading}"
+                                   Foreground="{DynamicResource Br.Danger}"/>
+                    </StackPanel>
+                    <ItemsControl ItemsSource="{Binding DangerousDetections}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Margin="0,0,0,8" Padding="14,10"
+                                        Background="{DynamicResource Br.DangerBg}"
+                                        CornerRadius="10">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="28"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0"
+                                                   Text="{Binding Category, Converter={StaticResource CatIcon}}"
+                                                   FontFamily="Segoe UI Emoji"
+                                                   FontSize="14"
+                                                   VerticalAlignment="Top"
+                                                   Margin="0,1,0,0"/>
+                                        <StackPanel Grid.Column="1">
+                                            <TextBlock Text="{Binding Name}"
+                                                       Style="{StaticResource Text.Body}"
+                                                       FontWeight="SemiBold"
+                                                       Margin="0,0,0,3"/>
+                                            <TextBlock Text="{Binding Description}"
+                                                       Style="{StaticResource Text.Secondary}"
+                                                       TextWrapping="Wrap"/>
+                                        </StackPanel>
+                                        <ctrl:DetectionTag Grid.Column="2"
+                                                           Label="{Binding Category}"
+                                                           Severity="{Binding Severity}"
+                                                           VerticalAlignment="Top"
+                                                           Margin="12,0,0,0"/>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+
+            <!-- ─── Suspicious detections ─── -->
+            <Border Style="{StaticResource Card}"
+                    Visibility="{Binding HasSuspicious, Converter={StaticResource BoolToVis}}"
+                    BorderBrush="{DynamicResource Br.Warning}">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                        <TextBlock Text="&#xE7BA;" FontFamily="Segoe MDL2 Assets" FontSize="14"
+                                   Foreground="{DynamicResource Br.Warning}"
+                                   VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <TextBlock Text="Suspicious" Style="{StaticResource Text.Subheading}"
+                                   Foreground="{DynamicResource Br.Warning}"/>
+                    </StackPanel>
+                    <ItemsControl ItemsSource="{Binding SuspiciousDetections}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Margin="0,0,0,8" Padding="14,10"
+                                        Background="{DynamicResource Br.WarningBg}"
+                                        CornerRadius="10">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="28"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0"
+                                                   Text="{Binding Category, Converter={StaticResource CatIcon}}"
+                                                   FontFamily="Segoe UI Emoji"
+                                                   FontSize="14"
+                                                   VerticalAlignment="Top"
+                                                   Margin="0,1,0,0"/>
+                                        <StackPanel Grid.Column="1">
+                                            <TextBlock Text="{Binding Name}"
+                                                       Style="{StaticResource Text.Body}"
+                                                       FontWeight="SemiBold"
+                                                       Margin="0,0,0,3"/>
+                                            <TextBlock Text="{Binding Description}"
+                                                       Style="{StaticResource Text.Secondary}"
+                                                       TextWrapping="Wrap"/>
+                                        </StackPanel>
+                                        <ctrl:DetectionTag Grid.Column="2"
+                                                           Label="{Binding Category}"
+                                                           Severity="{Binding Severity}"
+                                                           VerticalAlignment="Top"
+                                                           Margin="12,0,0,0"/>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+
+            <!-- ─── Safe detections ─── -->
+            <Border Style="{StaticResource Card}"
+                    Visibility="{Binding HasSafe, Converter={StaticResource BoolToVis}}">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                        <TextBlock Text="&#xE930;" FontFamily="Segoe MDL2 Assets" FontSize="14"
+                                   Foreground="{DynamicResource Br.Success}"
+                                   VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <TextBlock Text="Safe" Style="{StaticResource Text.Subheading}"
+                                   Foreground="{DynamicResource Br.Success}"/>
+                    </StackPanel>
+                    <ItemsControl ItemsSource="{Binding SafeDetections}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Margin="0,0,0,8" Padding="14,10"
+                                        Background="{DynamicResource Br.SuccessBg}"
+                                        CornerRadius="10">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="28"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0"
+                                                   Text="{Binding Category, Converter={StaticResource CatIcon}}"
+                                                   FontFamily="Segoe UI Emoji"
+                                                   FontSize="14"
+                                                   VerticalAlignment="Top"
+                                                   Margin="0,1,0,0"/>
+                                        <StackPanel Grid.Column="1">
+                                            <TextBlock Text="{Binding Name}"
+                                                       Style="{StaticResource Text.Body}"
+                                                       FontWeight="SemiBold"
+                                                       Margin="0,0,0,3"/>
+                                            <TextBlock Text="{Binding Description}"
+                                                       Style="{StaticResource Text.Secondary}"
+                                                       TextWrapping="Wrap"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+
+            <!-- ─── Info detections ─── -->
+            <Border Style="{StaticResource Card}"
+                    Visibility="{Binding HasInfo, Converter={StaticResource BoolToVis}}">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                        <TextBlock Text="&#xE946;" FontFamily="Segoe MDL2 Assets" FontSize="14"
+                                   Foreground="{DynamicResource Br.Info}"
+                                   VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <TextBlock Text="Info" Style="{StaticResource Text.Subheading}"
+                                   Foreground="{DynamicResource Br.Info}"/>
+                    </StackPanel>
+                    <ItemsControl ItemsSource="{Binding InfoDetections}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Margin="0,0,0,8" Padding="14,10"
+                                        Background="{DynamicResource Br.InfoBg}"
+                                        CornerRadius="10">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="28"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0"
+                                                   Text="{Binding Category, Converter={StaticResource CatIcon}}"
+                                                   FontFamily="Segoe UI Emoji"
+                                                   FontSize="14"
+                                                   VerticalAlignment="Top"
+                                                   Margin="0,1,0,0"/>
+                                        <StackPanel Grid.Column="1">
+                                            <TextBlock Text="{Binding Name}"
+                                                       Style="{StaticResource Text.Body}"
+                                                       FontWeight="SemiBold"
+                                                       Margin="0,0,0,3"/>
+                                            <TextBlock Text="{Binding Description}"
+                                                       Style="{StaticResource Text.Secondary}"
+                                                       TextWrapping="Wrap"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+
+            <!-- ─── PE Sections ─── -->
+            <Border Style="{StaticResource Card}"
+                    Visibility="{Binding Result.IsPE, Converter={StaticResource BoolToVis}}">
+                <StackPanel>
+                    <TextBlock Text="Sections" Style="{StaticResource Text.Subheading}" Margin="0,0,0,14"/>
+
+                    <!-- Column headers -->
+                    <Grid Margin="0,0,0,6">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="120"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="50"/>
+                            <ColumnDefinition Width="80"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="Name" Style="{StaticResource Text.Caption}"/>
+                        <TextBlock Grid.Column="1" Text="Entropy" Style="{StaticResource Text.Caption}"/>
+                        <TextBlock Grid.Column="2" Text="Value" Style="{StaticResource Text.Caption}"
+                                   HorizontalAlignment="Right" Margin="0,0,12,0"/>
+                        <TextBlock Grid.Column="3" Text="Flags" Style="{StaticResource Text.Caption}"/>
+                    </Grid>
+
+                    <Rectangle Height="1" Fill="{DynamicResource Br.Separator}" Margin="0,0,0,6"/>
+
+                    <ItemsControl ItemsSource="{Binding Result.PE.Sections}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <ctrl:SectionBar SectionName="{Binding Name}"
+                                                 Entropy="{Binding Entropy}"
+                                                 IsExecutable="{Binding IsExecutable}"
+                                                 IsWritable="{Binding IsWritable}"
+                                                 BarMaxWidth="260"/>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

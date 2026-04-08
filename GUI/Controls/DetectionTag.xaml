@@ -1,0 +1,24 @@
+<UserControl
+    x:Class="Noodle.App.Controls.DetectionTag"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Border Background="{Binding TagBackground, RelativeSource={RelativeSource AncestorType=UserControl}}"
+            BorderBrush="{Binding TagBorderBrush, RelativeSource={RelativeSource AncestorType=UserControl}}"
+            BorderThickness="1"
+            CornerRadius="16"
+            Padding="10,5">
+        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+            <Ellipse Width="6" Height="6"
+                     Fill="{Binding TagForeground, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                     Margin="0,0,6,0"
+                     VerticalAlignment="Center"/>
+            <TextBlock Text="{Binding Label, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                       Foreground="{Binding TagForeground, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                       FontFamily="Segoe UI Variable, Segoe UI"
+                       FontSize="12"
+                       FontWeight="Medium"
+                       VerticalAlignment="Center"/>
+        </StackPanel>
+    </Border>
+</UserControl>

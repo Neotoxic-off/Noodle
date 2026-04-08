@@ -1,18 +1,35 @@
-﻿<Application x:Class="GUI.App"
+<Application x:Class="Noodle.App.App"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:local="clr-namespace:GUI"
-             StartupUri="MainWindow.xaml">
-
+             xmlns:vm="clr-namespace:Noodle.App.ViewModels"
+             xmlns:views="clr-namespace:Noodle.App.Views"
+             xmlns:conv="clr-namespace:Noodle.App.Converters">
     <Application.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
-                <ResourceDictionary Source="Themes/ColourDictionaries/DeepDark.xaml"/>
-                <ResourceDictionary Source="Themes/ControlColours.xaml"/>
-                <ResourceDictionary Source="Themes/Controls.xaml"/>
-                <ResourceDictionary Source="/Assets/Icons.xaml"/>
-                <ResourceDictionary Source="/Assets/Styles.xaml"/>
+                <ResourceDictionary Source="pack://application:,,,/Noodle.App;component/Themes/Dark.xaml"/>
+                <ResourceDictionary Source="pack://application:,,,/Noodle.App;component/Styles/Controls.xaml"/>
             </ResourceDictionary.MergedDictionaries>
+
+            <!-- Converters -->
+            <conv:BoolToVisibilityConverter        x:Key="BoolToVis"/>
+            <conv:InverseBoolToVisibilityConverter x:Key="InvBoolToVis"/>
+            <conv:InverseBoolConverter             x:Key="InverseBool"/>
+            <conv:SeverityToBrushConverter         x:Key="SevBrush"/>
+            <conv:SeverityToBgBrushConverter       x:Key="SevBgBrush"/>
+            <conv:CategoryToIconConverter          x:Key="CatIcon"/>
+            <conv:FileSizeConverter                x:Key="FileSize"/>
+
+            <!-- ViewModel → View wiring -->
+            <DataTemplate DataType="{x:Type vm:DropViewModel}">
+                <views:DropView/>
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type vm:AnalysisViewModel}">
+                <views:AnalysisView/>
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type vm:SettingsViewModel}">
+                <views:SettingsView/>
+            </DataTemplate>
         </ResourceDictionary>
     </Application.Resources>
 </Application>

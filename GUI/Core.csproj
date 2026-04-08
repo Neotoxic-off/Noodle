@@ -1,24 +1,59 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net10.0-windows</TargetFramework>
+    <AssemblyName>Noodle.App</AssemblyName>
+    <RootNamespace>Noodle.App</RootNamespace>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <LibrarySrcDll>$(MSBuildThisFileDirectory)..\Noodle\bin\$(Configuration)\net10.0-windows\Noodle.Core.dll</LibrarySrcDll>
+    <!-- Stable copy in a sibling folder — never cleaned by MSBuild. -->
+    <LibraryRefDll>$(MSBuildThisFileDirectory)..\build-refs\$(Configuration)\Noodle.Core.dll</LibraryRefDll>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
-    <PackageReference Include="PeNet" Version="6.0.0" />
-    <PackageReference Include="Serilog" Version="4.3.1" />
-    <PackageReference Include="Serilog.Sinks.Console" Version="6.1.1" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.4" />
   </ItemGroup>
 
+  <!-- Build Library but do not auto-reference its output (we manage that explicitly). -->
   <ItemGroup>
-    <Reference Include="Library">
-      <HintPath>..\Noodle\bin\Debug\net10.0\Library.dll</HintPath>
+    <ProjectReference Include="..\Noodle\Library.csproj"
+                      ReferenceOutputAssembly="false"
+                      Private="false"/>
+  </ItemGroup>
+
+  <!-- Reference the stable copy in our own refs/ subfolder. -->
+  <ItemGroup>
+    <Reference Include="Noodle.Core">
+      <HintPath>$(LibraryRefDll)</HintPath>
+      <Private>true</Private>
     </Reference>
   </ItemGroup>
+
+  <!--
+    1. Build Library (if needed).
+    2. Copy its DLL into our obj/refs/ subfolder — a location the WPF BAML temp project
+       will not clean — so it is always available for MarkupCompilePass1 and CoreCompile.
+  -->
+  <Target Name="EnsureLibraryRef"
+          BeforeTargets="MarkupCompilePass1;ResolveAssemblyReferences">
+    <MSBuild Projects="..\Noodle\Library.csproj"
+             Targets="Build"
+             BuildInParallel="false"
+             Properties="Configuration=$(Configuration)"/>
+    <Message Text="EnsureLibraryRef: src=$(LibrarySrcDll) exists=$([System.IO.File]::Exists('$(LibrarySrcDll)'))" Importance="High"/>
+    <MakeDir Directories="$([System.IO.Path]::GetDirectoryName('$(LibraryRefDll)'))"/>
+    <Copy SourceFiles="$(LibrarySrcDll)"
+          DestinationFiles="$(LibraryRefDll)"
+          SkipUnchangedFiles="true"/>
+    <Message Text="EnsureLibraryRef: copied to $(LibraryRefDll)" Importance="High"/>
+  </Target>
 
 </Project>

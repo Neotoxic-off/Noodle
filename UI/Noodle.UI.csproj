@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <AssemblyName>Noodle.UI</AssemblyName>
+    <RootNamespace>Noodle.UI</RootNamespace>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <UseWPF>true</UseWPF>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Noodle\Library.csproj" />
+  </ItemGroup>
+
+  <!-- Ensure Library is fully built before BAML compilation begins -->
+  <Target Name="EnsureLibraryBuilt" BeforeTargets="GenerateTemporaryTargetAssembly">
+    <MSBuild Projects="..\Noodle\Library.csproj" Targets="Build" BuildInParallel="false"/>
+  </Target>
+
+</Project>

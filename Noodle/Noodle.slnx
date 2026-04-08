@@ -1,4 +1,5 @@
 <Solution>
   <Project Path="../GUI/Core.csproj" Id="80d45046-d6f9-4a99-b92c-60ff37a1a61e" />
   <Project Path="Library.csproj" />
+  <Project Path="../UI/Noodle.UI.csproj" />
 </Solution>
