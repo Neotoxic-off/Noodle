@@ -10,10 +10,10 @@
 
     <UserControl.Resources>
         <Style x:Key="ScanProgressBar" TargetType="ProgressBar">
-            <Setter Property="Height"          Value="2"/>
+            <Setter Property="Height" Value="2"/>
             <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Background"      Value="{DynamicResource Br.BgElevated}"/>
-            <Setter Property="Foreground"      Value="{DynamicResource Br.Accent}"/>
+            <Setter Property="Background" Value="{DynamicResource Br.BgElevated}"/>
+            <Setter Property="Foreground" Value="{DynamicResource Br.Accent}"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="ProgressBar">
@@ -90,9 +90,7 @@
                 <Grid VerticalAlignment="Center"
                       Margin="32,0"
                       Visibility="{Binding IsAnalyzing, Converter={StaticResource BoolToVis}}">
-
                     <StackPanel>
-                        <!-- Overall progress -->
                         <Grid Margin="0,0,0,6">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
@@ -116,7 +114,6 @@
                                      Maximum="100"
                                      Margin="0,0,0,12"/>
 
-                        <!-- Sub-task progress (YARA rules, etc.) -->
                         <Grid Margin="0,0,0,6"
                               Visibility="{Binding HasSubProgress, Converter={StaticResource BoolToVis}}">
                             <Grid.ColumnDefinitions>
@@ -128,7 +125,6 @@
                                        FontFamily="Consolas, Courier New"
                                        FontSize="10"
                                        Foreground="{DynamicResource Br.Text.Secondary}"
-                                       TextTrimming="CharacterEllipsis"
                                        Margin="0,0,10,0"/>
                             <TextBlock Grid.Column="1"
                                        Text="{Binding SubStatusText}"

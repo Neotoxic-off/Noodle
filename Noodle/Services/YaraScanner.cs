@@ -9,42 +9,42 @@ public sealed class YaraScanner
     private static readonly string RulesDir =
         Path.Combine(AppContext.BaseDirectory, "YaraRules");
 
-    public  int                              RuleFileCount { get; }
+    public int RuleFileCount { get; }
     private readonly IReadOnlyList<ParsedYaraRule> _customRules;
 
     public YaraScanner()
     {
-        string[] yarFiles  = [];
+        string[] yarFiles = [];
         string[] yaraFiles = [];
-        string[] allFiles  = [];
+        string[] allFiles = [];
 
         EnsureRulesFolder();
 
-        yarFiles  = Directory.GetFiles(RulesDir, "*.yar",  SearchOption.AllDirectories);
+        yarFiles = Directory.GetFiles(RulesDir, "*.yar", SearchOption.AllDirectories);
         yaraFiles = Directory.GetFiles(RulesDir, "*.yara", SearchOption.AllDirectories);
-        allFiles  = yarFiles.Concat(yaraFiles).ToArray();
+        allFiles = yarFiles.Concat(yaraFiles).ToArray();
 
         RuleFileCount = allFiles.Length;
-        _customRules  = allFiles.SelectMany(ParseRuleFile).ToList();
+        _customRules = allFiles.SelectMany(ParseRuleFile).ToList();
     }
 
     private sealed class ParsedYaraRule
     {
-        public string                         Name        { get; init; } = "";
-        public string                         Description { get; init; } = "";
-        public Severity                       Severity    { get; init; } = Severity.Suspicious;
-        public Dictionary<string, YaraString> Strings     { get; init; } = [];
-        public string                         Condition   { get; init; } = "";
+        public string Name { get; init; } = "";
+        public string Description { get; init; } = "";
+        public Severity Severity { get; init; } = Severity.Suspicious;
+        public Dictionary<string, YaraString> Strings { get; init; } = [];
+        public string Condition { get; init; } = "";
     }
 
     private abstract record YaraString;
 
     private sealed record LiteralString(
         string Text,
-        bool   NoCase,
-        bool   Wide,
-        bool   HasAscii,
-        bool   FullWord) : YaraString;
+        bool NoCase,
+        bool Wide,
+        bool HasAscii,
+        bool FullWord) : YaraString;
 
     private sealed record HexString(byte?[] Bytes) : YaraString;
 
@@ -56,33 +56,46 @@ public sealed class YaraScanner
     }
 
     public IReadOnlyList<YaraRuleResult> ScanCustomRules(
-        string                    filePath,
+        string filePath,
         Action<string, int, int>? onRule = null)
     {
-        FileStream           fs        = File.OpenRead(filePath);
-        int                  byteCount = (int)Math.Min(fs.Length, MaxScanBytes);
-        byte[]               raw       = new byte[byteCount];
-        List<YaraRuleResult> results   = new List<YaraRuleResult>(_customRules.Count);
-        int                  total     = _customRules.Count;
-
         if (_customRules.Count == 0) return [];
-        if (!File.Exists(filePath))  return [];
+        if (!File.Exists(filePath)) return [];
+
+        FileStream fs = File.OpenRead(filePath);
+        int byteCount = (int)Math.Min(fs.Length, MaxScanBytes);
+        byte[] raw = new byte[byteCount];
+        byte[] rawLower = new byte[byteCount];
+        YaraRuleResult[] results = new YaraRuleResult[_customRules.Count];
+        int total = _customRules.Count;
+        int done = 0;
 
         fs.ReadExactly(raw);
         fs.Dispose();
 
-        for (int i = 0; i < total; i++)
+        for (int k = 0; k < byteCount; k++)
         {
-            ParsedYaraRule rule    = _customRules[i];
-            bool           matched = EvaluateRule(rule, raw);
-            string         desc    = rule.Description.Length > 0
+            byte b = raw[k];
+            rawLower[k] = (b >= 65 && b <= 90) ? (byte)(b + 32) : b;
+        }
+
+        ParallelOptions opts = new ParallelOptions
+        {
+            MaxDegreeOfParallelism = Math.Max(1, Environment.ProcessorCount / 2)
+        };
+
+        Parallel.For(0, total, opts, i =>
+        {
+            ParsedYaraRule rule = _customRules[i];
+            bool matched = EvaluateRule(rule, raw, rawLower);
+            string desc = rule.Description.Length > 0
                 ? rule.Description
                 : $"Custom YARA rule '{rule.Name}'";
+            int current = Interlocked.Increment(ref done);
 
-            onRule?.Invoke(rule.Name, i + 1, total);
-
-            results.Add(new YaraRuleResult(rule.Name, desc, rule.Severity, matched));
-        }
+            results[i] = new YaraRuleResult(rule.Name, desc, rule.Severity, matched);
+            onRule?.Invoke(rule.Name, current, total);
+        });
 
         return results;
     }
@@ -120,39 +133,39 @@ public sealed class YaraScanner
 
     private static IEnumerable<ParsedYaraRule> ParseRuleFile(string path)
     {
-        string          text        = "";
-        int             pos         = 0;
-        Match           headerMatch = Match.Empty;
+        string text = "";
+        int pos = 0;
+        Match headerMatch = Match.Empty;
 
         if (!File.Exists(path)) yield break;
 
-        text        = File.ReadAllText(path);
+        text = File.ReadAllText(path);
         headerMatch = RxRuleHeader.Match(text, pos);
 
         while (pos < text.Length && headerMatch.Success)
         {
-            string          ruleName   = headerMatch.Groups[1].Value;
-            string          before     = text[pos..headerMatch.Index];
-            Severity        severity   = Severity.Suspicious;
-            Match           sevMatch   = RxSeverityComment.Match(before);
-            int             braceOpen  = headerMatch.Index + headerMatch.Length - 1;
-            int             braceClose = FindMatchingBrace(text, braceOpen);
-            string          body       = "";
-            ParsedYaraRule? rule       = null;
+            string ruleName = headerMatch.Groups[1].Value;
+            string before = text[pos..headerMatch.Index];
+            Severity severity = Severity.Suspicious;
+            Match sevMatch = RxSeverityComment.Match(before);
+            int braceOpen = headerMatch.Index + headerMatch.Length - 1;
+            int braceClose = FindMatchingBrace(text, braceOpen);
+            string body = "";
+            ParsedYaraRule? rule = null;
 
             if (sevMatch.Success)
             {
                 severity = sevMatch.Groups[1].Value.ToLowerInvariant() switch
                 {
                     "dangerous" or "high" or "critical" => Severity.Dangerous,
-                    "safe"      or "info" or "low"      => Severity.Safe,
-                    _                                   => Severity.Suspicious
+                    "safe" or "info" or "low" => Severity.Safe,
+                    _ => Severity.Suspicious
                 };
             }
 
             if (braceClose < 0)
             {
-                pos         = headerMatch.Index + headerMatch.Length;
+                pos = headerMatch.Index + headerMatch.Length;
                 headerMatch = RxRuleHeader.Match(text, pos);
                 continue;
             }
@@ -162,17 +175,17 @@ public sealed class YaraScanner
 
             if (rule != null) yield return rule;
 
-            pos         = braceClose + 1;
+            pos = braceClose + 1;
             headerMatch = RxRuleHeader.Match(text, pos);
         }
     }
 
     private static int FindMatchingBrace(string text, int openIdx)
     {
-        int  depth         = 0;
+        int depth = 0;
         bool inLineComment = false;
-        bool inString      = false;
-        int  i             = openIdx;
+        bool inString = false;
+        int i = openIdx;
 
         while (i < text.Length)
         {
@@ -181,20 +194,20 @@ public sealed class YaraScanner
             if (!inString && !inLineComment && i + 1 < text.Length && c == '/' && text[i + 1] == '/')
             {
                 inLineComment = true;
-                i             = i + 2;
+                i = i + 2;
                 continue;
             }
 
             if (inLineComment)
             {
                 inLineComment = c != '\n';
-                i             = i + 1;
+                i = i + 1;
                 continue;
             }
 
-            if (c == '"' && !inString) { inString = true;  i = i + 1; continue; }
-            if (c == '"' &&  inString) { inString = false; i = i + 1; continue; }
-            if (inString)              { i = i + 1; continue; }
+            if (c == '"' && !inString) { inString = true; i = i + 1; continue; }
+            if (c == '"' && inString) { inString = false; i = i + 1; continue; }
+            if (inString) { i = i + 1; continue; }
 
             if (c == '{') depth = depth + 1;
             if (c == '}')
@@ -211,11 +224,11 @@ public sealed class YaraScanner
 
     private static ParsedYaraRule? ParseRuleBody(string name, Severity severity, string body)
     {
-        string          metaSection      = ExtractSection(body, "meta");
-        string          stringsSection   = ExtractSection(body, "strings");
-        string          conditionSection = ExtractSection(body, "condition");
-        string          desc             = "";
-        Match           descMatch        = RxMetaDesc.Match(metaSection);
+        string metaSection = ExtractSection(body, "meta");
+        string stringsSection = ExtractSection(body, "strings");
+        string conditionSection = ExtractSection(body, "condition");
+        string desc = "";
+        Match descMatch = RxMetaDesc.Match(metaSection);
         Dictionary<string, YaraString> patterns = new Dictionary<string, YaraString>(
             StringComparer.OrdinalIgnoreCase);
 
@@ -225,14 +238,14 @@ public sealed class YaraScanner
 
         foreach (Match lm in RxLiteralDef.Matches(stringsSection))
         {
-            string varName   = lm.Groups[1].Value;
-            string rawText   = lm.Groups[2].Value;
-            string mods      = lm.Groups[3].Value.ToLowerInvariant();
+            string varName = lm.Groups[1].Value;
+            string rawText = lm.Groups[2].Value;
+            string mods = lm.Groups[3].Value.ToLowerInvariant();
             string unescaped = UnescapeString(rawText);
-            bool   noCase    = mods.Contains("nocase");
-            bool   wide      = mods.Contains("wide");
-            bool   hasAscii  = mods.Contains("ascii");
-            bool   fullWord  = mods.Contains("fullword");
+            bool noCase = mods.Contains("nocase");
+            bool wide = mods.Contains("wide");
+            bool hasAscii = mods.Contains("ascii");
+            bool fullWord = mods.Contains("fullword");
 
             patterns[$"${varName}"] = new LiteralString(unescaped, noCase, wide, hasAscii, fullWord);
         }
@@ -250,26 +263,26 @@ public sealed class YaraScanner
 
         return new ParsedYaraRule
         {
-            Name        = name,
+            Name = name,
             Description = desc,
-            Severity    = severity,
-            Strings     = patterns,
-            Condition   = conditionSection.Trim(),
+            Severity = severity,
+            Strings = patterns,
+            Condition = conditionSection.Trim(),
         };
     }
 
     private static string ExtractSection(string body, string sectionName)
     {
         MatchCollection matches = RxSectionHeader.Matches(body);
-        string          result  = "";
-        int             idx     = 0;
+        string result = "";
+        int idx = 0;
 
         while (idx < matches.Count && result.Length == 0)
         {
             if (matches[idx].Groups[1].Value.Equals(sectionName, StringComparison.OrdinalIgnoreCase))
             {
                 int start = matches[idx].Index + matches[idx].Length;
-                int end   = idx + 1 < matches.Count ? matches[idx + 1].Index : body.Length;
+                int end = idx + 1 < matches.Count ? matches[idx + 1].Index : body.Length;
 
                 result = body[start..end];
             }
@@ -282,10 +295,10 @@ public sealed class YaraScanner
 
     private static string UnescapeString(string s)
     {
-        StringBuilder sb   = new StringBuilder(s.Length);
-        int           i    = 0;
-        bool          isEscape = false;
-        char          next = '\0';
+        StringBuilder sb = new StringBuilder(s.Length);
+        int i = 0;
+        bool isEscape = false;
+        char next = '\0';
 
         while (i < s.Length)
         {
@@ -309,12 +322,12 @@ public sealed class YaraScanner
 
             sb.Append(next switch
             {
-                't'  => '\t',
-                'n'  => '\n',
-                'r'  => '\r',
+                't' => '\t',
+                'n' => '\n',
+                'r' => '\r',
                 '\\' => '\\',
-                '"'  => '"',
-                _    => next
+                '"' => '"',
+                _ => next
             });
 
             i = i + 2;
@@ -332,9 +345,9 @@ public sealed class YaraScanner
 
     private static HexString ParseHexString(string hex)
     {
-        string      cleaned = Regex.Replace(hex, @"/\*.*?\*/", " ", RegexOptions.Singleline);
-        List<byte?> bytes   = new List<byte?>();
-        string[]    tokens  = cleaned.Trim().Split(
+        string cleaned = Regex.Replace(hex, @"/\*.*?\*/", " ", RegexOptions.Singleline);
+        List<byte?> bytes = new List<byte?>();
+        string[] tokens = cleaned.Trim().Split(
             [' ', '\t', '\n', '\r'],
             StringSplitOptions.RemoveEmptyEntries);
 
@@ -346,9 +359,9 @@ public sealed class YaraScanner
             }
             else if (t.StartsWith('[') && t.EndsWith(']'))
             {
-                string inner   = t[1..^1];
-                int    dashPos = inner.IndexOf('-');
-                int    minJump = 0;
+                string inner = t[1..^1];
+                int dashPos = inner.IndexOf('-');
+                int minJump = 0;
 
                 if (dashPos >= 0)
                 {
@@ -371,13 +384,13 @@ public sealed class YaraScanner
         return new HexString(bytes.ToArray());
     }
 
-    private static bool EvaluateRule(ParsedYaraRule rule, byte[] raw)
+    private static bool EvaluateRule(ParsedYaraRule rule, byte[] raw, byte[] rawLower)
     {
         Dictionary<string, bool> hits = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
 
         foreach (KeyValuePair<string, YaraString> kv in rule.Strings)
         {
-            hits[kv.Key] = PatternMatches(kv.Value, raw);
+            hits[kv.Key] = PatternMatches(kv.Value, raw, rawLower);
         }
 
         return EvaluateCondition(rule.Condition, hits);
@@ -386,9 +399,9 @@ public sealed class YaraScanner
     private static bool EvaluateCondition(string cond, Dictionary<string, bool> hits)
     {
         string normalized = Regex.Replace(cond.Trim(), @"\s+", " ");
-        string lower      = normalized.ToLowerInvariant();
-        Match  countMatch = Match.Empty;
-        Match  ofGroup    = Match.Empty;
+        string lower = normalized.ToLowerInvariant();
+        Match countMatch = Match.Empty;
+        Match ofGroup = Match.Empty;
 
         if (lower == "any of them")
         {
@@ -415,8 +428,8 @@ public sealed class YaraScanner
 
         if (ofGroup.Success)
         {
-            bool   wantAll = ofGroup.Groups[1].Value.Equals("all", StringComparison.OrdinalIgnoreCase);
-            bool[] vals    = ResolveVarList(ofGroup.Groups[2].Value, hits);
+            bool wantAll = ofGroup.Groups[1].Value.Equals("all", StringComparison.OrdinalIgnoreCase);
+            bool[] vals = ResolveVarList(ofGroup.Groups[2].Value, hits);
 
             return wantAll ? vals.All(v => v) : vals.Any(v => v);
         }
@@ -428,7 +441,7 @@ public sealed class YaraScanner
 
     private static bool[] ResolveVarList(string inner, Dictionary<string, bool> hits)
     {
-        string[]   parts   = inner.Split(',');
+        string[] parts = inner.Split(',');
         List<bool> results = new List<bool>();
 
         foreach (string part in parts)
@@ -458,23 +471,23 @@ public sealed class YaraScanner
 
     private static bool EvalTokens(string[] toks, int start, Dictionary<string, bool> hits)
     {
-        int    i      = start;
-        bool   negate = false;
-        bool   left   = false;
-        string op     = "";
+        int i = start;
+        bool negate = false;
+        bool left = false;
+        string op = "";
 
         if (i >= toks.Length) return false;
 
         if (toks[i].Equals("not", StringComparison.OrdinalIgnoreCase))
         {
             negate = true;
-            i      = i + 1;
+            i = i + 1;
         }
 
         if (i >= toks.Length || !toks[i].StartsWith('$')) return false;
 
         left = hits.TryGetValue(toks[i], out bool lv) && lv;
-        i    = i + 1;
+        i = i + 1;
 
         if (negate) left = !left;
 
@@ -482,16 +495,16 @@ public sealed class YaraScanner
 
         while (i < toks.Length && (op == "and" || op == "or"))
         {
-            bool rightNegate  = false;
+            bool rightNegate = false;
             bool rightUnknown = false;
-            bool right        = false;
+            bool right = false;
 
             i = i + 1;
 
             if (i < toks.Length && toks[i].Equals("not", StringComparison.OrdinalIgnoreCase))
             {
                 rightNegate = true;
-                i           = i + 1;
+                i = i + 1;
             }
 
             if (i >= toks.Length || !toks[i].StartsWith('$'))
@@ -511,33 +524,33 @@ public sealed class YaraScanner
 
                 if (rightNegate) right = !right;
 
-                i    = i + 1;
+                i = i + 1;
                 left = op == "and" ? left && right : left || right;
-                op   = i < toks.Length ? toks[i].ToLowerInvariant() : "";
+                op = i < toks.Length ? toks[i].ToLowerInvariant() : "";
             }
         }
 
         return left;
     }
 
-    private static bool PatternMatches(YaraString pattern, byte[] raw)
+    private static bool PatternMatches(YaraString pattern, byte[] raw, byte[] rawLower)
     {
         bool wantAscii = false;
-        bool wantWide  = false;
-        bool result    = false;
+        bool wantWide = false;
+        bool result = false;
 
         if (pattern is LiteralString ls)
         {
             wantAscii = ls.HasAscii || !ls.Wide;
-            wantWide  = ls.Wide;
+            wantWide = ls.Wide;
 
             if (wantAscii && !result)
             {
                 byte[] needle = Encoding.ASCII.GetBytes(ls.Text);
 
                 result = ls.FullWord
-                    ? ContainsFullWordBytes(raw, needle, ls.NoCase)
-                    : ContainsBytesNC(raw.AsSpan(), needle, ls.NoCase);
+                    ? ContainsFullWordBytes(raw, rawLower, needle, ls.NoCase)
+                    : ContainsBytesNC(raw, rawLower, needle, ls.NoCase);
             }
 
             if (wantWide && !result)
@@ -554,63 +567,55 @@ public sealed class YaraScanner
         return result;
     }
 
-    private static bool ContainsBytesNC(ReadOnlySpan<byte> haystack, byte[] needle, bool noCase)
+    private static bool ContainsBytesNC(byte[] raw, byte[] rawLower, byte[] needle, bool noCase)
     {
-        int  limit = haystack.Length - needle.Length;
-        bool found = false;
-        int  i     = 0;
-
-        if (needle.Length == 0 || haystack.Length < needle.Length) return false;
-
-        if (!noCase) return haystack.IndexOf(needle.AsSpan()) >= 0;
-
-        while (i <= limit && !found)
-        {
-            bool ok = true;
-            int  j  = 0;
-
-            while (j < needle.Length && ok)
-            {
-                byte h  = haystack[i + j];
-                byte n  = needle[j];
-                byte hl = (h >= 65 && h <= 90) ? (byte)(h + 32) : h;
-                byte nl = (n >= 65 && n <= 90) ? (byte)(n + 32) : n;
-
-                ok = hl == nl;
-                j  = j + 1;
-            }
-
-            if (ok) found = true;
-
-            i = i + 1;
-        }
-
-        return found;
-    }
-
-    private static bool ContainsFullWordBytes(byte[] raw, byte[] needle, bool noCase)
-    {
-        int  limit   = raw.Length - needle.Length;
-        bool matched = false;
-        int  i       = 0;
-
         if (needle.Length == 0 || raw.Length < needle.Length) return false;
 
-        while (i <= limit && !matched)
+        if (!noCase) return raw.AsSpan().IndexOf(needle.AsSpan()) >= 0;
+
+        byte[] needleLower = LowerBytes(needle);
+
+        return rawLower.AsSpan().IndexOf(needleLower.AsSpan()) >= 0;
+    }
+
+    private static bool ContainsFullWordBytes(byte[] raw, byte[] rawLower, byte[] needle, bool noCase)
+    {
+        if (needle.Length == 0 || raw.Length < needle.Length) return false;
+
+        byte[] search = noCase ? LowerBytes(needle) : needle;
+        ReadOnlySpan<byte> haystack = noCase ? rawLower.AsSpan() : raw.AsSpan();
+        int offset = 0;
+        bool matched = false;
+
+        while (!matched)
         {
-            bool hits     = ContainsBytesNC(raw.AsSpan(i, needle.Length), needle, noCase);
-            bool beforeOk = i == 0 || !IsWordByte(raw[i - 1]);
-            bool afterOk  = i + needle.Length >= raw.Length || !IsWordByte(raw[i + needle.Length]);
+            int idx = haystack.Slice(offset).IndexOf(search.AsSpan());
 
-            if (hits && beforeOk && afterOk)
-            {
-                matched = true;
-            }
+            if (idx < 0) break;
 
-            i = i + 1;
+            int abs = offset + idx;
+            bool before = abs == 0 || !IsWordByte(raw[abs - 1]);
+            bool after = abs + needle.Length >= raw.Length || !IsWordByte(raw[abs + needle.Length]);
+
+            if (before && after) matched = true;
+
+            offset = abs + 1;
         }
 
         return matched;
+    }
+
+    private static byte[] LowerBytes(byte[] src)
+    {
+        byte[] dst = new byte[src.Length];
+
+        for (int i = 0; i < src.Length; i++)
+        {
+            byte b = src[i];
+            dst[i] = (b >= 65 && b <= 90) ? (byte)(b + 32) : b;
+        }
+
+        return dst;
     }
 
     private static bool IsWordByte(byte b)
@@ -618,7 +623,7 @@ public sealed class YaraScanner
         return (b >= (byte)'a' && b <= (byte)'z')
             || (b >= (byte)'A' && b <= (byte)'Z')
             || (b >= (byte)'0' && b <= (byte)'9')
-            ||  b == (byte)'_';
+            || b == (byte)'_';
     }
 
     private static bool ContainsBytes(ReadOnlySpan<byte> haystack, byte[] needle)
@@ -629,16 +634,16 @@ public sealed class YaraScanner
 
     private static bool ContainsWildcardBytes(ReadOnlySpan<byte> haystack, byte?[] pattern)
     {
-        int  limit = haystack.Length - pattern.Length;
+        int limit = haystack.Length - pattern.Length;
         bool found = false;
-        int  i     = 0;
+        int i = 0;
 
         if (pattern.Length == 0 || haystack.Length < pattern.Length) return false;
 
         while (i <= limit && !found)
         {
             bool ok = true;
-            int  j  = 0;
+            int j = 0;
 
             while (j < pattern.Length && ok)
             {

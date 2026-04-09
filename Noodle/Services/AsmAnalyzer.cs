@@ -9,22 +9,22 @@ public sealed class AsmAnalyzer
 
     public IEnumerable<Detection> Analyze(string filePath, PEInfo peInfo)
     {
-        byte[]             epBytes      = ReadEntryPointBytes(filePath, peInfo);
-        List<Instruction>  instructions = [];
-        bool               hasPushad    = false;
-        bool               hasPopad     = false;
-        int                maxNops      = 0;
-        int                curNops      = 0;
-        int                int3Count    = 0;
-        bool               hasInt2d     = false;
-        bool               hasPicTrick  = false;
-        int                picIdx       = 0;
-        bool               hasXorLoop   = false;
-        bool               hasTailJmp   = false;
-        ulong              tailTarget   = 0;
-        int                xorCount     = 0;
-        int                stosCount    = 0;
-        int                movsCount    = 0;
+        byte[] epBytes = ReadEntryPointBytes(filePath, peInfo);
+        List<Instruction> instructions = [];
+        bool hasPushad = false;
+        bool hasPopad = false;
+        int maxNops = 0;
+        int curNops = 0;
+        int int3Count = 0;
+        bool hasInt2d = false;
+        bool hasPicTrick = false;
+        int picIdx = 0;
+        bool hasXorLoop = false;
+        bool hasTailJmp = false;
+        ulong tailTarget = 0;
+        int xorCount = 0;
+        int stosCount = 0;
+        int movsCount = 0;
 
         if (epBytes.Length < 4) yield break;
 
@@ -35,7 +35,7 @@ public sealed class AsmAnalyzer
         if (!peInfo.IsX64)
         {
             hasPushad = instructions.Any(i => i.Mnemonic == Mnemonic.Pushad);
-            hasPopad  = instructions.Any(i => i.Mnemonic == Mnemonic.Popad);
+            hasPopad = instructions.Any(i => i.Mnemonic == Mnemonic.Popad);
 
             if (hasPushad && hasPopad)
                 yield return new Detection(
@@ -74,9 +74,9 @@ public sealed class AsmAnalyzer
                 Severity.Suspicious, DetectionCategory.Evasion);
 
         int3Count = instructions.Count(i => i.Mnemonic == Mnemonic.Int3);
-        hasInt2d  = instructions.Any(i =>
+        hasInt2d = instructions.Any(i =>
             i.Mnemonic == Mnemonic.Int &&
-            i.Op0Kind  == OpKind.Immediate8 &&
+            i.Op0Kind == OpKind.Immediate8 &&
             i.GetImmediate(0) == 0x2D);
 
         if (int3Count >= 3)
@@ -94,7 +94,7 @@ public sealed class AsmAnalyzer
         while (picIdx < instructions.Count - 1 && !hasPicTrick)
         {
             Instruction call = instructions[picIdx];
-            Instruction pop  = instructions[picIdx + 1];
+            Instruction pop = instructions[picIdx + 1];
 
             hasPicTrick = call.Mnemonic == Mnemonic.Call
                 && (ulong)call.NearBranch64 == call.NextIP
@@ -114,7 +114,7 @@ public sealed class AsmAnalyzer
             if (instructions[i].Mnemonic != Mnemonic.Xor) continue;
 
             int start = Math.Max(0, i - 6);
-            int end   = Math.Min(instructions.Count, i + 12);
+            int end = Math.Min(instructions.Count, i + 12);
 
             for (int j = start; j < end && !hasXorLoop; j = j + 1)
             {
@@ -158,7 +158,7 @@ public sealed class AsmAnalyzer
                 $"Large unconditional JMP to 0x{tailTarget:X} at entry point — packed binaries jump to the original entry point after runtime decryption.",
                 Severity.Dangerous, DetectionCategory.Packing);
 
-        xorCount  = instructions.Count(i => i.Mnemonic == Mnemonic.Xor);
+        xorCount = instructions.Count(i => i.Mnemonic == Mnemonic.Xor);
         stosCount = instructions.Count(i =>
             i.Mnemonic is Mnemonic.Stosb or Mnemonic.Stosw or Mnemonic.Stosd or Mnemonic.Stosq);
         movsCount = instructions.Count(i =>
@@ -179,10 +179,10 @@ public sealed class AsmAnalyzer
 
     private static List<Instruction> Disassemble(byte[] bytes, bool is64, uint rva)
     {
-        ByteArrayCodeReader reader  = new ByteArrayCodeReader(bytes);
-        Decoder             decoder = Decoder.Create(is64 ? 64 : 32, reader, DecoderOptions.None);
-        List<Instruction>   list    = new List<Instruction>(64);
-        Instruction         instr   = default;
+        ByteArrayCodeReader reader = new ByteArrayCodeReader(bytes);
+        Decoder decoder = Decoder.Create(is64 ? 64 : 32, reader, DecoderOptions.None);
+        List<Instruction> list = new List<Instruction>(64);
+        Instruction instr = default;
 
         decoder.IP = rva;
 
@@ -198,14 +198,14 @@ public sealed class AsmAnalyzer
 
     private static byte[] ReadEntryPointBytes(string filePath, PEInfo peInfo)
     {
-        uint      ep              = peInfo.EntryPoint;
-        SectionInfo? section       = null;
-        uint      offsetInSection = 0;
-        uint      fileOffset      = 0;
-        uint      available       = 0;
-        int       toRead          = 0;
-        byte[]    buf             = [];
-        int       read            = 0;
+        uint ep = peInfo.EntryPoint;
+        SectionInfo? section = null;
+        uint offsetInSection = 0;
+        uint fileOffset = 0;
+        uint available = 0;
+        int toRead = 0;
+        byte[] buf = [];
+        int read = 0;
 
         if (ep == 0) return [];
 
@@ -218,15 +218,15 @@ public sealed class AsmAnalyzer
         if (offsetInSection >= section.RawSize) return [];
 
         fileOffset = section.PointerToRawData + offsetInSection;
-        available  = section.RawSize - offsetInSection;
-        toRead     = (int)Math.Min(MaxBytes, available);
+        available = section.RawSize - offsetInSection;
+        toRead = (int)Math.Min(MaxBytes, available);
 
         if (toRead <= 0) return [];
 
         using FileStream fs = File.OpenRead(filePath);
 
         fs.Seek(fileOffset, SeekOrigin.Begin);
-        buf  = new byte[toRead];
+        buf = new byte[toRead];
         read = fs.Read(buf);
 
         return buf[..read];

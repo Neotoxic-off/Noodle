@@ -5,24 +5,6 @@
              Background="{DynamicResource Br.BgApp}">
 
     <UserControl.Resources>
-        <Style x:Key="ScoreBar" TargetType="ProgressBar">
-            <Setter Property="Height"          Value="4"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="ProgressBar">
-                        <Grid ClipToBounds="True">
-                            <Border x:Name="PART_Track" CornerRadius="2"
-                                    Background="{TemplateBinding Background}"/>
-                            <Border x:Name="PART_Indicator" CornerRadius="2"
-                                    HorizontalAlignment="Left"
-                                    Background="{TemplateBinding Foreground}"/>
-                        </Grid>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
         <DataTemplate x:Key="DetectionItemTemplate">
             <Border Margin="0,0,0,5" Padding="12,9"
                     Background="{DynamicResource Br.BgElevated}"
@@ -54,6 +36,7 @@
                     <TextBlock Grid.Column="0"
                                Text="{Binding Category, Converter={StaticResource CatIcon}}"
                                FontFamily="Segoe UI Emoji" FontSize="13"
+                               Foreground="{Binding Severity, Converter={StaticResource SevBrush}}"
                                VerticalAlignment="Top" Margin="0,1,0,0"/>
                     <StackPanel Grid.Column="1">
                         <TextBlock Text="{Binding Name}"
@@ -87,9 +70,6 @@
                            Style="{StaticResource Text.Heading}"
                            TextTrimming="CharacterEllipsis"/>
                 <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
-                    <ctrl:DetectionTag Label="{Binding OverallLabel}"
-                                       Severity="{Binding OverallSeverity}"
-                                       Margin="0,0,8,0"/>
                     <TextBlock Text="{Binding Result.Metadata.FileType}"
                                Style="{StaticResource Text.Caption}"
                                VerticalAlignment="Center"/>
@@ -255,9 +235,6 @@
                                 </WrapPanel>
 
                                 <!-- PDB path if present -->
-                                <StackPanel Visibility="{Binding Result.PE.PdbPath.Length, Converter={StaticResource InvBoolToVis}}"
-                                            Margin="0,10,0,0">
-                                </StackPanel>
                                 <Border Margin="0,8,0,0" Padding="10,7"
                                         Background="{DynamicResource Br.BgElevated}"
                                         CornerRadius="4"
@@ -320,6 +297,44 @@
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Safe -->
+                        <Border Style="{StaticResource Card}"
+                                Visibility="{Binding HasSafe, Converter={StaticResource BoolToVis}}">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                                    <TextBlock Text="&#xE930;" FontFamily="Segoe MDL2 Assets" FontSize="13"
+                                               Foreground="{DynamicResource Br.Success}"
+                                               VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                    <TextBlock Text="SAFE" Style="{StaticResource Text.Subheading}"
+                                               Foreground="{DynamicResource Br.Success}"/>
+                                    <TextBlock Text="{Binding SafeDetections.Count, StringFormat=' ({0})', Mode=OneWay}"
+                                               Style="{StaticResource Text.Caption}"
+                                               Foreground="{DynamicResource Br.Success}" VerticalAlignment="Center"/>
+                                </StackPanel>
+                                <ItemsControl ItemsSource="{Binding SafeDetections}"
+                                              ItemTemplate="{StaticResource DetectionItemTemplate}"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Info -->
+                        <Border Style="{StaticResource Card}"
+                                Visibility="{Binding HasInfo, Converter={StaticResource BoolToVis}}">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                                    <TextBlock Text="&#xE946;" FontFamily="Segoe MDL2 Assets" FontSize="13"
+                                               Foreground="{DynamicResource Br.Info}"
+                                               VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                    <TextBlock Text="INFO" Style="{StaticResource Text.Subheading}"
+                                               Foreground="{DynamicResource Br.Info}"/>
+                                    <TextBlock Text="{Binding InfoDetections.Count, StringFormat=' ({0})', Mode=OneWay}"
+                                               Style="{StaticResource Text.Caption}"
+                                               Foreground="{DynamicResource Br.Info}" VerticalAlignment="Center"/>
+                                </StackPanel>
+                                <ItemsControl ItemsSource="{Binding InfoDetections}"
+                                              ItemTemplate="{StaticResource DetectionItemTemplate}"/>
                             </StackPanel>
                         </Border>
 
@@ -502,55 +517,6 @@
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="24,16,24,24">
 
-                        <!-- Verdict banner -->
-                        <Border Style="{StaticResource Card}">
-                            <StackPanel>
-                                <Grid Margin="0,0,0,8">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Grid.Column="0"
-                                               Text="{Binding Verdict}"
-                                               FontFamily="Consolas, Courier New"
-                                               FontSize="16" FontWeight="Bold"
-                                               Foreground="{Binding OverallSeverity, Converter={StaticResource SevBrush}}"/>
-                                    <StackPanel Grid.Column="1" Orientation="Horizontal">
-                                        <TextBlock Text="{Binding ThreatScore}"
-                                                   FontFamily="Consolas, Courier New"
-                                                   FontSize="16" FontWeight="Bold"
-                                                   Foreground="{Binding OverallSeverity, Converter={StaticResource SevBrush}}"/>
-                                        <TextBlock Text="/100"
-                                                   Style="{StaticResource Text.Caption}"
-                                                   VerticalAlignment="Bottom" Margin="2,0,0,1"/>
-                                    </StackPanel>
-                                </Grid>
-                                <ProgressBar Style="{StaticResource ScoreBar}"
-                                             Value="{Binding ThreatScore, Mode=OneWay}"
-                                             Maximum="100"
-                                             Margin="0,0,0,10"
-                                             Background="{DynamicResource Br.BgElevated}"
-                                             Foreground="{Binding OverallSeverity, Converter={StaticResource SevBrush}}"/>
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Style="{StaticResource Text.Caption}"
-                                               Foreground="{DynamicResource Br.Danger}" Margin="0,0,16,0">
-                                        <Run Text="{Binding DangerousDetections.Count, Mode=OneWay}"/>
-                                        <Run Text=" dangerous"/>
-                                    </TextBlock>
-                                    <TextBlock Style="{StaticResource Text.Caption}"
-                                               Foreground="{DynamicResource Br.Warning}" Margin="0,0,16,0">
-                                        <Run Text="{Binding SuspiciousDetections.Count, Mode=OneWay}"/>
-                                        <Run Text=" suspicious"/>
-                                    </TextBlock>
-                                    <TextBlock Style="{StaticResource Text.Caption}"
-                                               Foreground="{DynamicResource Br.Success}">
-                                        <Run Text="{Binding SafeDetections.Count, Mode=OneWay}"/>
-                                        <Run Text=" safe"/>
-                                    </TextBlock>
-                                </StackPanel>
-                            </StackPanel>
-                        </Border>
-
                         <!-- Detection labels cloud -->
                         <Border Style="{StaticResource Card}"
                                 Visibility="{Binding HasTags, Converter={StaticResource BoolToVis}}">
@@ -611,41 +577,129 @@
                             </StackPanel>
                         </Border>
 
-                        <!-- Safe -->
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+            <!-- ══════ TAB 5: NETWORK ══════ -->
+            <TabItem Header="// NETWORK">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="24,16,24,24">
+
+                        <!-- Empty state -->
                         <Border Style="{StaticResource Card}"
-                                Visibility="{Binding HasSafe, Converter={StaticResource BoolToVis}}">
+                                Visibility="{Binding HasNetworkData, Converter={StaticResource InvBoolToVis}}">
+                            <TextBlock Text="No network indicators found."
+                                       Style="{StaticResource Text.Secondary}"
+                                       TextWrapping="Wrap"/>
+                        </Border>
+
+                        <!-- IPs -->
+                        <Border Style="{StaticResource Card}"
+                                Visibility="{Binding Network.Ips.Count, Converter={StaticResource BoolToVis}}">
                             <StackPanel>
                                 <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                                    <TextBlock Text="&#xE930;" FontFamily="Segoe MDL2 Assets" FontSize="13"
-                                               Foreground="{DynamicResource Br.Success}"
-                                               VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                    <TextBlock Text="SAFE" Style="{StaticResource Text.Subheading}"
-                                               Foreground="{DynamicResource Br.Success}"/>
-                                    <TextBlock Text="{Binding SafeDetections.Count, StringFormat=' ({0})', Mode=OneWay}"
+                                    <TextBlock Text="// IP ADDRESSES" Style="{StaticResource Text.Caption}"/>
+                                    <TextBlock Text="{Binding Network.Ips.Count, StringFormat=' — {0}'}"
                                                Style="{StaticResource Text.Caption}"
-                                               Foreground="{DynamicResource Br.Success}" VerticalAlignment="Center"/>
+                                               Foreground="{DynamicResource Br.Accent}"/>
                                 </StackPanel>
-                                <ItemsControl ItemsSource="{Binding SafeDetections}"
-                                              ItemTemplate="{StaticResource DetectionItemTemplate}"/>
+                                <ItemsControl ItemsSource="{Binding Network.Ips}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Margin="0,0,0,3" Padding="10,6"
+                                                    Background="{DynamicResource Br.BgElevated}"
+                                                    CornerRadius="4">
+                                                <TextBlock Text="{Binding}"
+                                                           FontFamily="Consolas, Courier New"
+                                                           FontSize="11"
+                                                           Foreground="{DynamicResource Br.Text.Primary}"/>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
                             </StackPanel>
                         </Border>
 
-                        <!-- Info -->
+                        <!-- URLs -->
                         <Border Style="{StaticResource Card}"
-                                Visibility="{Binding HasInfo, Converter={StaticResource BoolToVis}}">
+                                Visibility="{Binding Network.Urls.Count, Converter={StaticResource BoolToVis}}">
                             <StackPanel>
                                 <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                                    <TextBlock Text="&#xE946;" FontFamily="Segoe MDL2 Assets" FontSize="13"
-                                               Foreground="{DynamicResource Br.Info}"
-                                               VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                    <TextBlock Text="INFO" Style="{StaticResource Text.Subheading}"
-                                               Foreground="{DynamicResource Br.Info}"/>
-                                    <TextBlock Text="{Binding InfoDetections.Count, StringFormat=' ({0})', Mode=OneWay}"
+                                    <TextBlock Text="// URLS" Style="{StaticResource Text.Caption}"/>
+                                    <TextBlock Text="{Binding Network.Urls.Count, StringFormat=' — {0}'}"
                                                Style="{StaticResource Text.Caption}"
-                                               Foreground="{DynamicResource Br.Info}" VerticalAlignment="Center"/>
+                                               Foreground="{DynamicResource Br.Accent}"/>
                                 </StackPanel>
-                                <ItemsControl ItemsSource="{Binding InfoDetections}"
-                                              ItemTemplate="{StaticResource DetectionItemTemplate}"/>
+                                <ItemsControl ItemsSource="{Binding Network.Urls}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Margin="0,0,0,3" Padding="10,6"
+                                                    Background="{DynamicResource Br.BgElevated}"
+                                                    CornerRadius="4">
+                                                <TextBlock Text="{Binding}"
+                                                           FontFamily="Consolas, Courier New"
+                                                           FontSize="11"
+                                                           Foreground="{DynamicResource Br.Accent}"
+                                                           TextTrimming="CharacterEllipsis"/>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Emails -->
+                        <Border Style="{StaticResource Card}"
+                                Visibility="{Binding Network.Emails.Count, Converter={StaticResource BoolToVis}}">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                                    <TextBlock Text="// EMAIL ADDRESSES" Style="{StaticResource Text.Caption}"/>
+                                    <TextBlock Text="{Binding Network.Emails.Count, StringFormat=' — {0}'}"
+                                               Style="{StaticResource Text.Caption}"
+                                               Foreground="{DynamicResource Br.Accent}"/>
+                                </StackPanel>
+                                <ItemsControl ItemsSource="{Binding Network.Emails}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Margin="0,0,0,3" Padding="10,6"
+                                                    Background="{DynamicResource Br.BgElevated}"
+                                                    CornerRadius="4">
+                                                <TextBlock Text="{Binding}"
+                                                           FontFamily="Consolas, Courier New"
+                                                           FontSize="11"
+                                                           Foreground="{DynamicResource Br.Text.Primary}"/>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- MAC Addresses -->
+                        <Border Style="{StaticResource Card}"
+                                Visibility="{Binding Network.MacAddresses.Count, Converter={StaticResource BoolToVis}}">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                                    <TextBlock Text="// MAC ADDRESSES" Style="{StaticResource Text.Caption}"/>
+                                    <TextBlock Text="{Binding Network.MacAddresses.Count, StringFormat=' — {0}'}"
+                                               Style="{StaticResource Text.Caption}"
+                                               Foreground="{DynamicResource Br.Accent}"/>
+                                </StackPanel>
+                                <ItemsControl ItemsSource="{Binding Network.MacAddresses}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Margin="0,0,0,3" Padding="10,6"
+                                                    Background="{DynamicResource Br.BgElevated}"
+                                                    CornerRadius="4">
+                                                <TextBlock Text="{Binding}"
+                                                           FontFamily="Consolas, Courier New"
+                                                           FontSize="11"
+                                                           Foreground="{DynamicResource Br.Text.Primary}"/>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
                             </StackPanel>
                         </Border>
 
@@ -653,7 +707,86 @@
                 </ScrollViewer>
             </TabItem>
 
-            <!-- ══════ TAB 5: YARA ══════ -->
+            <!-- ══════ TAB 6: CREDENTIALS ══════ -->
+            <TabItem Header="// CREDS">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="24,16,24,24">
+
+                        <!-- Empty state -->
+                        <Border Style="{StaticResource Card}"
+                                Visibility="{Binding HasCredentials, Converter={StaticResource InvBoolToVis}}">
+                            <TextBlock Text="No hardcoded credentials or secrets found."
+                                       Style="{StaticResource Text.Secondary}"
+                                       TextWrapping="Wrap"/>
+                        </Border>
+
+                        <!-- Credential matches -->
+                        <Border Style="{StaticResource Card}"
+                                Visibility="{Binding HasCredentials, Converter={StaticResource BoolToVis}}"
+                                BorderBrush="{DynamicResource Br.Danger}">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                                    <TextBlock Text="// SECRETS DETECTED" Style="{StaticResource Text.Caption}"
+                                               Foreground="{DynamicResource Br.Danger}"/>
+                                    <TextBlock Text="{Binding CredentialYaraMatches.Count, StringFormat=' — {0} match(es)'}"
+                                               Style="{StaticResource Text.Caption}"
+                                               Foreground="{DynamicResource Br.Danger}"/>
+                                </StackPanel>
+
+                                <Grid Margin="0,0,0,5">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="80"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="RULE" Style="{StaticResource Text.Caption}"/>
+                                    <TextBlock Grid.Column="1" Text="SEVERITY" Style="{StaticResource Text.Caption}"/>
+                                </Grid>
+                                <Rectangle Height="1" Fill="{DynamicResource Br.Separator}" Margin="0,0,0,5"/>
+
+                                <ItemsControl ItemsSource="{Binding CredentialYaraMatches}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Margin="0,0,0,3" Padding="10,7"
+                                                    Background="{DynamicResource Br.BgElevated}"
+                                                    CornerRadius="4"
+                                                    ToolTipService.ShowDuration="20000">
+                                                <Border.ToolTip>
+                                                    <ToolTip MaxWidth="380">
+                                                        <StackPanel>
+                                                            <TextBlock Text="{Binding Name}" FontWeight="Bold"
+                                                                       Foreground="{DynamicResource Br.Text.Primary}" Margin="0,0,0,4"/>
+                                                            <TextBlock Text="{Binding Description}"
+                                                                       Foreground="{DynamicResource Br.Text.Secondary}"
+                                                                       TextWrapping="Wrap"/>
+                                                        </StackPanel>
+                                                    </ToolTip>
+                                                </Border.ToolTip>
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="80"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock Grid.Column="0" Text="{Binding Name}"
+                                                               FontFamily="Consolas, Courier New" FontSize="11"
+                                                               Foreground="{DynamicResource Br.Text.Primary}"
+                                                               TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                                                    <TextBlock Grid.Column="1" Text="{Binding Severity}"
+                                                               Style="{StaticResource Text.Caption}"
+                                                               Foreground="{Binding Severity, Converter={StaticResource SevBrush}}"
+                                                               VerticalAlignment="Center"/>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Border>
+
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+            <!-- ══════ TAB 7: YARA ══════ -->
             <TabItem Header="// YARA">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="24,16,24,24">

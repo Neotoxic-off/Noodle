@@ -25,5 +25,5 @@ public sealed record PEInfo(
 )
 {
     public string Architecture => IsX64 ? "x64" : "x86";
-    public string Kind         => IsDLL ? "DLL" : IsDriver ? "Driver" : "Executable";
+    public string Kind => IsDLL ? "DLL" : IsDriver ? "Driver" : "Executable";
 }

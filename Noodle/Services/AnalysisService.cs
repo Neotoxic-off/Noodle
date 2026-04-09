@@ -5,11 +5,11 @@ namespace Noodle.Core.Services;
 
 public sealed class AnalysisService : IAnalysisService
 {
-    private readonly PEAnalyzer      _peAnalyzer      = new();
+    private readonly PEAnalyzer _peAnalyzer = new();
     private readonly SectionAnalyzer _sectionAnalyzer = new();
     private readonly StringExtractor _stringExtractor = new();
-    private readonly YaraScanner     _yaraScanner     = new();
-    private readonly AsmAnalyzer     _asmAnalyzer     = new();
+    private readonly YaraScanner _yaraScanner = new();
+    private readonly AsmAnalyzer _asmAnalyzer = new();
 
     public Task<AnalysisResult> AnalyzeAsync(
         string filePath,
@@ -21,52 +21,53 @@ public sealed class AnalysisService : IAnalysisService
     {
         const int total = 10;
 
-        int                              step         = 0;
-        string                           md5          = "";
-        string                           sha256       = "";
-        string                           type         = "";
-        string                           magic        = "";
-        long                             size         = 0L;
-        FileMetadata                     metadata     = default!;
-        PEInfo?                          peInfo       = null;
-        bool                             isPE         = false;
-        ImmutableArray<Detection>.Builder detections  = ImmutableArray.CreateBuilder<Detection>();
-        int                              yaraFileCount = 0;
-        ImmutableArray<YaraRuleResult>   yaraResults  = ImmutableArray<YaraRuleResult>.Empty;
-        CompilerInfo?                    compilerInfo = null;
-        DateTime                         compiled     = default;
+        int step = 0;
+        string md5 = "";
+        string sha256 = "";
+        string type = "";
+        string magic = "";
+        long size = 0L;
+        FileMetadata metadata = default!;
+        PEInfo? peInfo = null;
+        bool isPE = false;
+        ImmutableArray<Detection>.Builder detections = ImmutableArray.CreateBuilder<Detection>();
+        int yaraFileCount = 0;
+        ImmutableArray<YaraRuleResult> yaraResults = ImmutableArray<YaraRuleResult>.Empty;
+        NetworkInfo network = NetworkInfo.Empty;
+        CompilerInfo? compilerInfo = null;
+        DateTime compiled = default;
 
         void Step(string msg) => p?.Report(new ScanProgress(msg, ++step, total));
 
-        Step("[INIT] Computing hashes…");
+        Step("Computing hashes…");
         (md5, sha256) = HashCalculator.Compute(filePath);
 
-        Step("[INIT] Detecting file type…");
+        Step("Detecting file type…");
         (type, magic) = FileTypeDetector.Detect(filePath);
 
-        size     = File.Exists(filePath) ? new FileInfo(filePath).Length : 0L;
+        size = File.Exists(filePath) ? new FileInfo(filePath).Length : 0L;
         metadata = new FileMetadata(
-            FilePath:   filePath,
-            FileName:   Path.GetFileName(filePath),
-            FileSize:   size,
-            MD5:        md5,
-            SHA256:     sha256,
-            FileType:   type,
+            FilePath: filePath,
+            FileName: Path.GetFileName(filePath),
+            FileSize: size,
+            MD5: md5,
+            SHA256: sha256,
+            FileType: type,
             MagicBytes: magic
         );
 
-        Step("[PE] Parsing binary structure…");
+        Step("Parsing binary structure…");
         (peInfo, isPE) = _peAnalyzer.Analyze(filePath);
 
         if (isPE && peInfo is not null)
         {
-            Step($"[PE] Analyzing {peInfo.Sections.Length} section(s)…");
+            Step($"Analyzing {peInfo.Sections.Length} section(s)…");
             detections.AddRange(_sectionAnalyzer.Analyze(peInfo.Sections, peInfo.EntryPoint));
 
-            Step("[ASM] Disassembling entry point region…");
+            Step("Disassembling entry point region…");
             detections.AddRange(_asmAnalyzer.Analyze(filePath, peInfo));
 
-            Step("[PE] Checking TLS / overlay / debug / timestamps…");
+            Step("Checking TLS / overlay / debug / timestamps…");
 
             if (peInfo.HasTls)
                 detections.Add(new Detection(
@@ -132,25 +133,27 @@ public sealed class AnalysisService : IAnalysisService
         else
         {
             step += 3;
-            p?.Report(new ScanProgress("[PE] Not a PE binary, skipping PE analysis.", step, total));
+            p?.Report(new ScanProgress("Not a PE binary, skipping PE analysis.", step, total));
         }
 
-        Step("[STR] Extracting embedded strings and IOCs…");
-        detections.AddRange(_stringExtractor.Analyze(filePath));
+        Step("Extracting embedded strings and IOCs…");
+        (IEnumerable<Detection> strDets, NetworkInfo network2) = _stringExtractor.Analyze(filePath);
+        detections.AddRange(strDets);
+        network = network2;
 
-        Step("[SIG] Running byte signature rules…");
+        Step("Running byte signature rules…");
         detections.AddRange(_yaraScanner.Scan(filePath));
 
         yaraFileCount = _yaraScanner.RuleFileCount;
 
         Step(yaraFileCount > 0
-            ? $"[YARA] Applying {yaraFileCount} custom rule file(s)…"
-            : "[YARA] No custom rule files found.");
+            ? $"Applying {yaraFileCount} custom rule file(s)…"
+            : "No custom rule files found.");
 
         yaraResults = _yaraScanner.ScanCustomRules(
             filePath,
             (ruleName, subStep, subTotal) =>
-                p?.Report(new ScanProgress($"[YARA] {ruleName}", step, total, subStep, subTotal))
+                p?.Report(new ScanProgress(ruleName, step, total, subStep, subTotal))
         ).ToImmutableArray();
 
         foreach (YaraRuleResult yr in yaraResults.Where(r => r.Matched))
@@ -162,21 +165,22 @@ public sealed class AnalysisService : IAnalysisService
                 $"This file is not a PE binary — detected as {type}.",
                 Severity.Safe, DetectionCategory.Info));
 
-        Step("[COMP] Detecting compiler and language…");
+        Step("Detecting compiler and language…");
         compilerInfo = isPE && peInfo is not null
             ? CompilerDetector.Detect(peInfo)
             : null;
 
         p?.Report(new ScanProgress(
-            $"[DONE] Scan complete — {detections.Count} finding(s).",
+            $"Scan complete — {detections.Count} finding(s).",
             total, total));
 
         return new AnalysisResult(
-            Metadata:    metadata,
-            PE:          peInfo,
-            Compiler:    compilerInfo,
-            Detections:  detections.ToImmutable(),
+            Metadata: metadata,
+            PE: peInfo,
+            Compiler: compilerInfo,
+            Detections: detections.ToImmutable(),
             YaraResults: yaraResults,
-            IsPE:        isPE);
+            Network: network,
+            IsPE: isPE);
     }
 }
