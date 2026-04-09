@@ -5,7 +5,9 @@
       "Bash(~/.dotnet/dotnet build:*)",
       "Read(//c/Users/neo/.dotnet/**)",
       "Read(//mnt/c/Users/neo/**)",
-      "Bash(dotnet build:*)"
+      "Bash(dotnet build:*)",
+      "Bash(\"/c/Program Files/dotnet/dotnet\" build GUI/Core.csproj)",
+      "Bash(\"/c/Program Files/dotnet/dotnet\" build D:/Code/Github/Noodle/GUI/Core.csproj)"
     ]
   }
 }

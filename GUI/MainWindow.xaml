@@ -3,124 +3,69 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
         Title="Noodle"
-        Width="1060" Height="700"
-        MinWidth="820" MinHeight="540"
+        Width="900" Height="700"
+        MinWidth="640" MinHeight="480"
         WindowStyle="None"
         ResizeMode="CanResize"
         Background="{DynamicResource Br.BgApp}">
 
-    <!-- Eliminates the DWM non-client border/shadow while keeping resize hit-testing -->
+    <!-- DWM rounded corners are applied in code-behind via OnSourceInitialized -->
     <shell:WindowChrome.WindowChrome>
         <shell:WindowChrome CaptionHeight="0"
                             GlassFrameThickness="0"
                             ResizeBorderThickness="4,4,4,4"
                             UseAeroCaptionButtons="False"
-                            CornerRadius="0"/>
+                            CornerRadius="10"/>
     </shell:WindowChrome.WindowChrome>
 
-    <Grid>
-        <Grid.RowDefinitions>
-            <RowDefinition Height="34"/>
-            <RowDefinition Height="*"/>
-        </Grid.RowDefinitions>
+    <!-- Clip content to rounded corners -->
+    <Border CornerRadius="10" ClipToBounds="True">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="34"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
 
-        <!-- ─── Title bar ─── -->
-        <Border Grid.Row="0"
-                Background="{DynamicResource Br.TitleBar}"
-                MouseLeftButtonDown="TitleBar_MouseDown">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
+            <!-- ─── Title bar ─── -->
+            <Border Grid.Row="0"
+                    Background="{DynamicResource Br.TitleBar}"
+                    MouseLeftButtonDown="TitleBar_MouseDown">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
 
-                <TextBlock Grid.Column="0"
-                           Text="NOODLE // PE ANALYZER"
-                           FontFamily="Consolas, Courier New"
-                           FontSize="11"
-                           FontWeight="Bold"
-                           VerticalAlignment="Center"
-                           Margin="16,0"
-                           Foreground="{DynamicResource Br.Accent}"/>
-
-                <StackPanel Grid.Column="1" Orientation="Horizontal">
-                    <Button Style="{StaticResource Btn.Chrome}"
-                            FontFamily="Segoe MDL2 Assets"
-                            Content="&#xE921;"
-                            Click="OnMinimize"/>
-                    <Button Style="{StaticResource Btn.Chrome}"
-                            FontFamily="Segoe MDL2 Assets"
-                            Content="&#xE922;"
-                            Click="OnMaximize"/>
-                    <Button Style="{StaticResource Btn.Chrome.Close}"
-                            FontFamily="Segoe MDL2 Assets"
-                            Content="&#xE8BB;"
-                            Click="OnClose"/>
-                </StackPanel>
-            </Grid>
-        </Border>
-
-        <!-- ─── Body ─── -->
-        <Grid Grid.Row="1">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="170"/>
-                <ColumnDefinition Width="*"/>
-            </Grid.ColumnDefinitions>
-
-            <!-- Sidebar -->
-            <Border Grid.Column="0"
-                    Background="{DynamicResource Br.BgSidebar}"
-                    BorderBrush="{DynamicResource Br.Border}"
-                    BorderThickness="0,0,1,0">
-                <StackPanel Margin="0,16,0,0">
-
-                    <TextBlock Text="NOODLE"
+                    <TextBlock Grid.Column="0"
+                               Text="NOODLE // PE ANALYZER"
                                FontFamily="Consolas, Courier New"
-                               FontSize="18"
+                               FontSize="11"
                                FontWeight="Bold"
-                               Foreground="{DynamicResource Br.Accent}"
-                               Margin="20,0,0,4"/>
-                    <TextBlock Text="// binary scanner"
-                               FontFamily="Consolas, Courier New"
-                               FontSize="10"
-                               Foreground="{DynamicResource Br.Text.Secondary}"
-                               Margin="20,0,0,20"/>
+                               VerticalAlignment="Center"
+                               Margin="16,0"
+                               Foreground="{DynamicResource Br.Accent}"/>
 
-                    <!-- Analyze nav -->
-                    <Button Style="{StaticResource Btn.Nav}"
-                            Command="{Binding GoHomeCommand}">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="14"
-                                       Text="&#xE896;"
-                                       VerticalAlignment="Center"
-                                       Margin="0,0,10,0">
-                                <TextBlock.Style>
-                                    <Style TargetType="TextBlock">
-                                        <Setter Property="Foreground" Value="{DynamicResource Br.NavIcon.Inactive}"/>
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding IsHomeActive}" Value="True">
-                                                <Setter Property="Foreground" Value="{DynamicResource Br.NavIcon.Active}"/>
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </TextBlock.Style>
-                            </TextBlock>
-                            <TextBlock Text="ANALYZE"
-                                       FontFamily="Consolas, Courier New"
-                                       FontSize="11"
-                                       FontWeight="Bold"
-                                       Foreground="{DynamicResource Br.Text.Primary}"
-                                       VerticalAlignment="Center"/>
-                        </StackPanel>
-                    </Button>
-
-                </StackPanel>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal">
+                        <Button Style="{StaticResource Btn.Chrome}"
+                                FontFamily="Segoe MDL2 Assets"
+                                Content="&#xE921;"
+                                Click="OnMinimize"/>
+                        <Button Style="{StaticResource Btn.Chrome}"
+                                FontFamily="Segoe MDL2 Assets"
+                                Content="&#xE922;"
+                                Click="OnMaximize"/>
+                        <Button Style="{StaticResource Btn.Chrome.Close}"
+                                FontFamily="Segoe MDL2 Assets"
+                                Content="&#xE8BB;"
+                                Click="OnClose"/>
+                    </StackPanel>
+                </Grid>
             </Border>
 
-            <!-- Content area -->
-            <ContentControl Grid.Column="1"
+            <!-- ─── Content (full width, no sidebar) ─── -->
+            <ContentControl Grid.Row="1"
                             Content="{Binding CurrentPage}"
                             Focusable="False"/>
         </Grid>
-    </Grid>
+    </Border>
 </Window>

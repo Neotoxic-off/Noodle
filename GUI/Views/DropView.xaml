@@ -8,16 +8,44 @@
              DragOver="OnDragOver"
              Background="{DynamicResource Br.BgApp}">
 
+    <UserControl.Resources>
+        <Style x:Key="ScanProgressBar" TargetType="ProgressBar">
+            <Setter Property="Height"          Value="2"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Background"      Value="{DynamicResource Br.BgElevated}"/>
+            <Setter Property="Foreground"      Value="{DynamicResource Br.Accent}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ProgressBar">
+                        <Grid>
+                            <Border x:Name="PART_Track" CornerRadius="1"
+                                    Background="{TemplateBinding Background}"/>
+                            <Border x:Name="PART_Indicator" CornerRadius="1"
+                                    HorizontalAlignment="Left"
+                                    Background="{TemplateBinding Foreground}"/>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+
     <Grid>
-        <Grid VerticalAlignment="Center" HorizontalAlignment="Center" Width="480">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <Grid Grid.Row="1" Margin="60,0" MinHeight="220">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="16"/>
                 <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
 
-            <!-- Drop zone -->
-            <Grid Grid.Row="0" Height="320">
+            <!-- Drop rectangle -->
+            <Grid Grid.Row="0" MinHeight="220">
                 <Rectangle x:Name="DropRect"
                            Stroke="{DynamicResource Br.DropBorder}"
                            StrokeDashArray="4,3"
@@ -35,13 +63,12 @@
                                FontSize="48"
                                Foreground="{DynamicResource Br.Accent}"
                                HorizontalAlignment="Center"
-                               Opacity="0.4"
+                               Opacity="0.35"
                                Margin="0,0,0,20"/>
 
                     <TextBlock Text="{Binding StatusText}"
                                FontFamily="Consolas, Courier New"
-                               FontSize="13"
-                               FontWeight="Bold"
+                               FontSize="13" FontWeight="Bold"
                                Foreground="{DynamicResource Br.Accent}"
                                HorizontalAlignment="Center"
                                Margin="0,0,0,4"/>
@@ -59,28 +86,62 @@
                             HorizontalAlignment="Center"/>
                 </StackPanel>
 
-                <!-- Scanning state — live step log -->
-                <StackPanel VerticalAlignment="Center"
-                            HorizontalAlignment="Center"
-                            Width="380"
-                            Visibility="{Binding IsAnalyzing, Converter={StaticResource BoolToVis}}">
+                <!-- Scanning state -->
+                <Grid VerticalAlignment="Center"
+                      Margin="32,0"
+                      Visibility="{Binding IsAnalyzing, Converter={StaticResource BoolToVis}}">
 
-                    <!-- Animated scan bar -->
-                    <ProgressBar IsIndeterminate="True"
-                                 Width="360" Height="2"
-                                 Background="Transparent"
-                                 Foreground="{DynamicResource Br.Accent}"
-                                 BorderThickness="0"
-                                 Margin="0,0,0,20"/>
+                    <StackPanel>
+                        <!-- Overall progress -->
+                        <Grid Margin="0,0,0,6">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0"
+                                       Text="{Binding StatusText}"
+                                       FontFamily="Consolas, Courier New"
+                                       FontSize="11"
+                                       Foreground="{DynamicResource Br.Accent}"
+                                       TextTrimming="CharacterEllipsis"
+                                       Margin="0,0,10,0"/>
+                            <TextBlock Grid.Column="1"
+                                       Text="{Binding ScanProgress, StringFormat={}{0:F0}%}"
+                                       FontFamily="Consolas, Courier New"
+                                       FontSize="10"
+                                       Foreground="{DynamicResource Br.Text.Secondary}"/>
+                        </Grid>
+                        <ProgressBar Style="{StaticResource ScanProgressBar}"
+                                     Value="{Binding ScanProgress, Mode=OneWay}"
+                                     Maximum="100"
+                                     Margin="0,0,0,12"/>
 
-                    <!-- Step text — monospace terminal feel -->
-                    <TextBlock Text="{Binding StatusText}"
-                               FontFamily="Consolas, Courier New"
-                               FontSize="11"
-                               Foreground="{DynamicResource Br.Accent}"
-                               HorizontalAlignment="Left"
-                               TextWrapping="Wrap"/>
-                </StackPanel>
+                        <!-- Sub-task progress (YARA rules, etc.) -->
+                        <Grid Margin="0,0,0,6"
+                              Visibility="{Binding HasSubProgress, Converter={StaticResource BoolToVis}}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0"
+                                       Text="rules"
+                                       FontFamily="Consolas, Courier New"
+                                       FontSize="10"
+                                       Foreground="{DynamicResource Br.Text.Secondary}"
+                                       TextTrimming="CharacterEllipsis"
+                                       Margin="0,0,10,0"/>
+                            <TextBlock Grid.Column="1"
+                                       Text="{Binding SubStatusText}"
+                                       FontFamily="Consolas, Courier New"
+                                       FontSize="10"
+                                       Foreground="{DynamicResource Br.Text.Secondary}"/>
+                        </Grid>
+                        <ProgressBar Style="{StaticResource ScanProgressBar}"
+                                     Value="{Binding SubScanProgress, Mode=OneWay}"
+                                     Maximum="100"
+                                     Visibility="{Binding HasSubProgress, Converter={StaticResource BoolToVis}}"/>
+                    </StackPanel>
+                </Grid>
             </Grid>
 
             <!-- Error panel -->
@@ -94,8 +155,7 @@
                 <StackPanel Orientation="Horizontal">
                     <TextBlock Text="[ERR]"
                                FontFamily="Consolas, Courier New"
-                               FontSize="11"
-                               FontWeight="Bold"
+                               FontSize="11" FontWeight="Bold"
                                Foreground="{DynamicResource Br.Danger}"
                                VerticalAlignment="Top"
                                Margin="0,0,10,0"/>

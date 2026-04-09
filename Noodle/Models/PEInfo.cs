@@ -6,6 +6,7 @@ public sealed record PEInfo(
     bool IsX64,
     bool IsDLL,
     bool IsDriver,
+    bool IsDotNet,
     string Subsystem,
     uint EntryPoint,
     long TimeDateStamp,
@@ -14,7 +15,11 @@ public sealed record PEInfo(
     bool HasTls,
     bool HasDebugInfo,
     bool HasOverlay,
-    ImmutableArray<string> Imports,
+    string LinkerVersion,
+    string PdbPath,
+    string ClrVersion,
+    int ResourceCount,
+    ImmutableArray<ImportEntry> Imports,
     ImmutableArray<string> Exports,
     ImmutableArray<SectionInfo> Sections
 )

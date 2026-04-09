@@ -4,441 +4,657 @@ using Noodle.Core.Models;
 
 namespace Noodle.Core.Services;
 
-/// <summary>
-/// Two-part scanner:
-/// 1. Built-in signature rules (byte patterns + string patterns).
-/// 2. Custom YARA rules loaded from the YaraRules/ folder next to the executable.
-///    Supports a practical subset: string defs ($a = "text", $b = { hex }),
-///    and conditions: any/all of them, $name, $a and $b, $a or $b, not $name.
-/// </summary>
 public sealed class YaraScanner
 {
-    // ── Rules folder ──────────────────────────────────────────────────────────
-
     private static readonly string RulesDir =
         Path.Combine(AppContext.BaseDirectory, "YaraRules");
 
-    public int RuleFileCount { get; }
-
+    public  int                              RuleFileCount { get; }
     private readonly IReadOnlyList<ParsedYaraRule> _customRules;
 
     public YaraScanner()
     {
+        string[] yarFiles  = [];
+        string[] yaraFiles = [];
+        string[] allFiles  = [];
+
         EnsureRulesFolder();
-        var files = Directory.GetFiles(RulesDir, "*.yar", SearchOption.AllDirectories)
-            .Concat(Directory.GetFiles(RulesDir, "*.yara", SearchOption.AllDirectories))
-            .ToArray();
-        RuleFileCount = files.Length;
-        _customRules  = files.SelectMany(ParseRuleFile).ToList();
+
+        yarFiles  = Directory.GetFiles(RulesDir, "*.yar",  SearchOption.AllDirectories);
+        yaraFiles = Directory.GetFiles(RulesDir, "*.yara", SearchOption.AllDirectories);
+        allFiles  = yarFiles.Concat(yaraFiles).ToArray();
+
+        RuleFileCount = allFiles.Length;
+        _customRules  = allFiles.SelectMany(ParseRuleFile).ToList();
     }
 
-    private static void EnsureRulesFolder()
+    private sealed class ParsedYaraRule
     {
-        if (!Directory.Exists(RulesDir))
-        {
-            Directory.CreateDirectory(RulesDir);
-            File.WriteAllText(Path.Combine(RulesDir, "HOWTO.txt"),
-                """
-                Place YARA rule files (.yar / .yara) in this folder.
-                Noodle loads them automatically on startup.
-
-                Supported syntax:
-
-                    rule MyRule {
-                        strings:
-                            $a = "suspicious string"
-                            $b = "another" nocase
-                            $c = { 4D 5A 90 00 ?? ?? }
-                        condition:
-                            any of them
-                    }
-
-                Condition keywords: any of them | all of them
-                                    $name | $a and $b | $a or $b | not $name
-
-                Rules produce a YARA detection with Suspicious severity by default.
-                Add a comment line  // severity: dangerous  above the rule keyword
-                to override. Example:
-
-                    // severity: dangerous
-                    rule CobaltStrikeBeacon { ... }
-                """);
-        }
+        public string                         Name        { get; init; } = "";
+        public string                         Description { get; init; } = "";
+        public Severity                       Severity    { get; init; } = Severity.Suspicious;
+        public Dictionary<string, YaraString> Strings     { get; init; } = [];
+        public string                         Condition   { get; init; } = "";
     }
 
-    // ── Built-in byte-pattern rules ───────────────────────────────────────────
+    private abstract record YaraString;
 
-    private sealed record ByteRule(
-        string Name, string Description, Severity Severity, DetectionCategory Category,
-        byte[] Pattern);
+    private sealed record LiteralString(
+        string Text,
+        bool   NoCase,
+        bool   Wide,
+        bool   HasAscii,
+        bool   FullWord) : YaraString;
 
-    private static readonly ByteRule[] BuiltinByteRules =
-    [
-        new("UPX Packer",
-            "UPX magic bytes ('UPX!') detected — binary is UPX-packed.",
-            Severity.Dangerous, DetectionCategory.Packing, "UPX!"u8.ToArray()),
-
-        new("VMProtect",
-            "VMProtect signature detected — binary is protected with virtual-machine obfuscation.",
-            Severity.Dangerous, DetectionCategory.Packing, "VMProtect"u8.ToArray()),
-
-        new("Themida / WinLicense",
-            "Themida/WinLicense protector signature detected.",
-            Severity.Dangerous, DetectionCategory.Packing, "Themida"u8.ToArray()),
-
-        new("ASPack",
-            "ASPack packer signature detected.",
-            Severity.Dangerous, DetectionCategory.Packing, "ASPack"u8.ToArray()),
-
-        new("AES S-box Constants",
-            "AES S-box lookup table detected — binary implements AES encryption internally.",
-            Severity.Suspicious, DetectionCategory.Crypto,
-            [0x63,0x7C,0x77,0x7B,0xF2,0x6B,0x6F,0xC5,0x30,0x01,0x67,0x2B,0xFE,0xD7,0xAB,0x76]),
-
-        new("Metasploit Meterpreter",
-            "Meterpreter payload string detected — likely a Metasploit reverse-shell payload.",
-            Severity.Dangerous, DetectionCategory.Injection, "Meterpreter"u8.ToArray()),
-
-        new("Reflective DLL Loading",
-            "'ReflectiveDll' marker detected — binary uses reflective injection to load itself without touching disk.",
-            Severity.Dangerous, DetectionCategory.Injection, "ReflectiveDll"u8.ToArray()),
-
-        new("EICAR Test Signature",
-            "EICAR anti-virus test file signature detected.",
-            Severity.Suspicious, DetectionCategory.Signature,
-            "X5O!P%@AP[4\\"u8.ToArray()),
-    ];
-
-    // ── Built-in string-pattern rules ─────────────────────────────────────────
-
-    private sealed record StringRule(
-        string Name, string Description, Severity Severity, DetectionCategory Category,
-        string[] Patterns, bool IgnoreCase = true);
-
-    private static readonly StringRule[] BuiltinStringRules =
-    [
-        new("AutoRun Registry Persistence",
-            "Windows Run/RunOnce registry key path found — binary may add itself to startup.",
-            Severity.Suspicious, DetectionCategory.Persistence,
-            ["CurrentVersion\\Run", "CurrentVersion\\RunOnce"]),
-
-        new("Scheduled Task Persistence",
-            "Task Scheduler COM strings found — binary may install a persistent scheduled task.",
-            Severity.Suspicious, DetectionCategory.Persistence,
-            ["Schedule.Service", "ITaskService", "TaskScheduler"]),
-
-        new("Shell Command Execution",
-            "cmd.exe /c invocation found — binary executes OS shell commands.",
-            Severity.Suspicious, DetectionCategory.Injection,
-            ["cmd.exe /c", "cmd /c ", "cmd.exe /k"]),
-
-        new("PowerShell Invocation",
-            "PowerShell process name found in strings — may run scripts or download payloads.",
-            Severity.Suspicious, DetectionCategory.Injection,
-            ["powershell", "powershell.exe", "pwsh.exe"]),
-
-        new("PowerShell Download Cradle",
-            "PowerShell DownloadString/IEX pattern — classic fileless malware loader.",
-            Severity.Dangerous, DetectionCategory.Injection,
-            ["DownloadString", "IEX(", "Invoke-Expression", "IEX (New-Object"]),
-
-        new("WScript / CScript Execution",
-            "WScript.Shell or Shell.Application COM object found — binary may run scripts via Windows Scripting Host.",
-            Severity.Suspicious, DetectionCategory.Injection,
-            ["WScript.Shell", "Shell.Application", "CScript.exe"], IgnoreCase: false),
-
-        new("Base64-Encoded PE Dropper",
-            "Base64-encoded MZ/PE header detected — binary may decode and execute another executable in memory.",
-            Severity.Dangerous, DetectionCategory.Packing,
-            ["TVqQAAMAAAAEAAAA", "TVpQAAIAAAAEAA=="], IgnoreCase: false),
-
-        new("Cobalt Strike / Beacon",
-            "Cobalt Strike beacon or loader markers detected.",
-            Severity.Dangerous, DetectionCategory.Injection,
-            ["cobaltstrike", "beacon", "ReflectiveLoader"]),
-
-        new("Common Malware Drop Paths",
-            "AppData/Temp file paths typically used by malware to drop and persist payloads.",
-            Severity.Suspicious, DetectionCategory.Persistence,
-            ["\\AppData\\Roaming\\", "\\AppData\\Local\\Temp\\", "%TEMP%\\", "%APPDATA%\\"],
-            IgnoreCase: false),
-
-        new("Shadow Copy Deletion",
-            "Volume Shadow Copy deletion command found — hallmark ransomware behavior to prevent recovery.",
-            Severity.Dangerous, DetectionCategory.Ransomware,
-            ["vssadmin delete shadows", "wmic shadowcopy delete", "bcdedit /set {default}"]),
-
-        new("Ransomware Strings",
-            "Strings associated with ransomware extortion behavior.",
-            Severity.Dangerous, DetectionCategory.Ransomware,
-            ["YOUR_FILES_ARE_ENCRYPTED", "HOW_TO_DECRYPT", ".locked", ".encrypted", "README_FOR_DECRYPT"]),
-
-        new("Anti-Sandbox / Anti-VM Strings",
-            "Known VM/sandbox process or DLL names found — binary checks its execution environment.",
-            Severity.Suspicious, DetectionCategory.Evasion,
-            ["SbieDll.dll", "vmtoolsd.exe", "vboxservice.exe", "VirtualBox", "VMWARE", "Sandboxie"]),
-
-        new("Tor / Onion C2",
-            ".onion address found — binary may communicate through the Tor anonymisation network.",
-            Severity.Dangerous, DetectionCategory.Network,
-            [".onion", "torproject.org"]),
-
-        new("Crypto-Mining",
-            "Stratum mining protocol or XMR/Monero strings found — possible crypto-miner payload.",
-            Severity.Dangerous, DetectionCategory.Crypto,
-            ["stratum+tcp://", "xmrig", "cryptonight", "monero"]),
-    ];
-
-    // ── Public scan entry point ───────────────────────────────────────────────
+    private sealed record HexString(byte?[] Bytes) : YaraString;
 
     private const int MaxScanBytes = 10 * 1024 * 1024;
 
     public IEnumerable<Detection> Scan(string filePath)
     {
-        byte[] raw;
-        try
-        {
-            using var fs = File.OpenRead(filePath);
-            raw = new byte[Math.Min(fs.Length, MaxScanBytes)];
-            fs.ReadExactly(raw);
-        }
-        catch { yield break; }
-
-        // Built-in byte rules (skip first 64 bytes for embedded PE check)
-        foreach (var rule in BuiltinByteRules)
-        {
-            var span = rule.Name == "Embedded PE (MZ Header)"
-                ? raw.AsSpan(64)
-                : raw.AsSpan();
-            if (ContainsBytes(span, rule.Pattern))
-                yield return new Detection(rule.Name, rule.Description, rule.Severity, rule.Category);
-        }
-
-        // Built-in string rules
-        string ascii = ToAsciiBlob(raw);
-        foreach (var rule in BuiltinStringRules)
-        {
-            var cmp = rule.IgnoreCase ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
-            if (rule.Patterns.Any(p => ascii.Contains(p, cmp)))
-                yield return new Detection(rule.Name, rule.Description, rule.Severity, rule.Category);
-        }
-
-        // Custom YARA rules from folder
-        foreach (var rule in _customRules)
-        {
-            if (EvaluateYaraRule(rule, raw, ascii))
-                yield return new Detection(
-                    $"YARA: {rule.Name}",
-                    rule.Description.Length > 0
-                        ? rule.Description
-                        : $"Custom YARA rule '{rule.Name}' matched.",
-                    rule.Severity,
-                    DetectionCategory.Yara);
-        }
+        return Enumerable.Empty<Detection>();
     }
 
-    // ── YARA rule parsing ─────────────────────────────────────────────────────
-
-    private sealed class ParsedYaraRule
+    public IReadOnlyList<YaraRuleResult> ScanCustomRules(
+        string                    filePath,
+        Action<string, int, int>? onRule = null)
     {
-        public string Name        { get; init; } = "";
-        public string Description { get; init; } = "";
-        public Severity Severity  { get; init; } = Severity.Suspicious;
-        public Dictionary<string, YaraPattern> Strings { get; init; } = [];
-        public string Condition   { get; init; } = "";
+        FileStream           fs        = File.OpenRead(filePath);
+        int                  byteCount = (int)Math.Min(fs.Length, MaxScanBytes);
+        byte[]               raw       = new byte[byteCount];
+        List<YaraRuleResult> results   = new List<YaraRuleResult>(_customRules.Count);
+        int                  total     = _customRules.Count;
+
+        if (_customRules.Count == 0) return [];
+        if (!File.Exists(filePath))  return [];
+
+        fs.ReadExactly(raw);
+        fs.Dispose();
+
+        for (int i = 0; i < total; i++)
+        {
+            ParsedYaraRule rule    = _customRules[i];
+            bool           matched = EvaluateRule(rule, raw);
+            string         desc    = rule.Description.Length > 0
+                ? rule.Description
+                : $"Custom YARA rule '{rule.Name}'";
+
+            onRule?.Invoke(rule.Name, i + 1, total);
+
+            results.Add(new YaraRuleResult(rule.Name, desc, rule.Severity, matched));
+        }
+
+        return results;
     }
 
-    private abstract record YaraPattern;
-    private sealed record LiteralPattern(string Text, bool NoCase) : YaraPattern;
-    private sealed record HexPattern(byte?[] Bytes) : YaraPattern;   // null = wildcard
+    private static void EnsureRulesFolder()
+    {
+        if (Directory.Exists(RulesDir)) return;
 
-    private static readonly Regex RuleRegex = new(
-        @"(?:\/\/\s*severity\s*:\s*(\w+)\s*\n)?" +
-        @"rule\s+(\w+)\s*\{" +
-        @"(?:.*?meta:\s*(.*?))?" +
-        @"(?:.*?strings:\s*(.*?))?" +
-        @"condition:\s*(.*?)" +
-        @"\}",
-        RegexOptions.Singleline | RegexOptions.IgnoreCase);
+        Directory.CreateDirectory(RulesDir);
+    }
 
-    private static readonly Regex StringDefRegex = new(
-        @"\$(\w+)\s*=\s*(?:""([^""]*)""\s*(nocase)?|\{\s*([0-9A-Fa-f\s?]+)\s*\})",
+    private static readonly Regex RxSeverityComment = new(
+        @"//\s*severity\s*:\s*(\w+)\s*$",
+        RegexOptions.Multiline | RegexOptions.IgnoreCase);
+
+    private static readonly Regex RxRuleHeader = new(
+        @"rule\s+(\w+)(?:\s*:[^{]*)?\s*\{",
         RegexOptions.IgnoreCase);
 
-    private static readonly Regex MetaDescRegex = new(
+    private static readonly Regex RxLiteralDef = new(
+        @"^\s*\$(\w+)\s*=\s*""((?:[^""\r\n\\]|\\[^\r\n])*)""\s*((?:(?:nocase|wide|ascii|fullword)[ \t]*)*)",
+        RegexOptions.Multiline | RegexOptions.IgnoreCase);
+
+    private static readonly Regex RxHexDef = new(
+        @"^\s*\$(\w+)\s*=\s*\{([^}]*)\}",
+        RegexOptions.Multiline | RegexOptions.Singleline | RegexOptions.IgnoreCase);
+
+    private static readonly Regex RxMetaDesc = new(
         @"description\s*=\s*""([^""]*)""",
         RegexOptions.IgnoreCase);
 
+    private static readonly Regex RxSectionHeader = new(
+        @"^\s*(meta|strings|condition)\s*:",
+        RegexOptions.Multiline | RegexOptions.IgnoreCase);
+
     private static IEnumerable<ParsedYaraRule> ParseRuleFile(string path)
     {
-        string text;
-        try { text = File.ReadAllText(path); }
-        catch { yield break; }
+        string          text        = "";
+        int             pos         = 0;
+        Match           headerMatch = Match.Empty;
 
-        foreach (Match m in RuleRegex.Matches(text))
+        if (!File.Exists(path)) yield break;
+
+        text        = File.ReadAllText(path);
+        headerMatch = RxRuleHeader.Match(text, pos);
+
+        while (pos < text.Length && headerMatch.Success)
         {
-            var severityStr = m.Groups[1].Value.Trim().ToLowerInvariant();
-            var severity = severityStr switch
+            string          ruleName   = headerMatch.Groups[1].Value;
+            string          before     = text[pos..headerMatch.Index];
+            Severity        severity   = Severity.Suspicious;
+            Match           sevMatch   = RxSeverityComment.Match(before);
+            int             braceOpen  = headerMatch.Index + headerMatch.Length - 1;
+            int             braceClose = FindMatchingBrace(text, braceOpen);
+            string          body       = "";
+            ParsedYaraRule? rule       = null;
+
+            if (sevMatch.Success)
             {
-                "dangerous" or "high" or "critical" => Severity.Dangerous,
-                "safe" or "info" or "low"            => Severity.Safe,
-                _                                    => Severity.Suspicious
-            };
-
-            string ruleName  = m.Groups[2].Value.Trim();
-            string metaSec   = m.Groups[3].Value;
-            string stringSec = m.Groups[4].Value;
-            string condition = m.Groups[5].Value.Trim().ToLowerInvariant();
-
-            string desc = MetaDescRegex.Match(metaSec) is { Success: true } dm
-                ? dm.Groups[1].Value
-                : "";
-
-            var patterns = new Dictionary<string, YaraPattern>(StringComparer.OrdinalIgnoreCase);
-            foreach (Match sm in StringDefRegex.Matches(stringSec))
-            {
-                string varName = sm.Groups[1].Value;
-                if (sm.Groups[2].Success)
+                severity = sevMatch.Groups[1].Value.ToLowerInvariant() switch
                 {
-                    // literal string
-                    bool noCase = sm.Groups[3].Success;
-                    patterns[$"${varName}"] = new LiteralPattern(sm.Groups[2].Value, noCase);
-                }
-                else if (sm.Groups[4].Success)
-                {
-                    // hex pattern
-                    patterns[$"${varName}"] = ParseHexPattern(sm.Groups[4].Value);
-                }
+                    "dangerous" or "high" or "critical" => Severity.Dangerous,
+                    "safe"      or "info" or "low"      => Severity.Safe,
+                    _                                   => Severity.Suspicious
+                };
             }
 
-            yield return new ParsedYaraRule
+            if (braceClose < 0)
             {
-                Name        = ruleName,
-                Description = desc,
-                Severity    = severity,
-                Strings     = patterns,
-                Condition   = condition,
-            };
+                pos         = headerMatch.Index + headerMatch.Length;
+                headerMatch = RxRuleHeader.Match(text, pos);
+                continue;
+            }
+
+            body = text[(braceOpen + 1)..braceClose];
+            rule = ParseRuleBody(ruleName, severity, body);
+
+            if (rule != null) yield return rule;
+
+            pos         = braceClose + 1;
+            headerMatch = RxRuleHeader.Match(text, pos);
         }
     }
 
-    private static HexPattern ParseHexPattern(string hex)
+    private static int FindMatchingBrace(string text, int openIdx)
     {
-        var tokens = hex.Trim().Split([' ', '\t', '\n', '\r'], StringSplitOptions.RemoveEmptyEntries);
-        var bytes  = new List<byte?>();
-        foreach (var t in tokens)
+        int  depth         = 0;
+        bool inLineComment = false;
+        bool inString      = false;
+        int  i             = openIdx;
+
+        while (i < text.Length)
         {
-            if (t == "??" || t == "?")
-                bytes.Add(null);
-            else if (byte.TryParse(t, System.Globalization.NumberStyles.HexNumber, null, out byte b))
-                bytes.Add(b);
+            char c = text[i];
+
+            if (!inString && !inLineComment && i + 1 < text.Length && c == '/' && text[i + 1] == '/')
+            {
+                inLineComment = true;
+                i             = i + 2;
+                continue;
+            }
+
+            if (inLineComment)
+            {
+                inLineComment = c != '\n';
+                i             = i + 1;
+                continue;
+            }
+
+            if (c == '"' && !inString) { inString = true;  i = i + 1; continue; }
+            if (c == '"' &&  inString) { inString = false; i = i + 1; continue; }
+            if (inString)              { i = i + 1; continue; }
+
+            if (c == '{') depth = depth + 1;
+            if (c == '}')
+            {
+                depth = depth - 1;
+                if (depth == 0) return i;
+            }
+
+            i = i + 1;
         }
-        return new HexPattern(bytes.ToArray());
+
+        return -1;
     }
 
-    // ── YARA condition evaluator ──────────────────────────────────────────────
-
-    private static bool EvaluateYaraRule(ParsedYaraRule rule, byte[] raw, string ascii)
+    private static ParsedYaraRule? ParseRuleBody(string name, Severity severity, string body)
     {
-        if (rule.Strings.Count == 0) return false;
-
-        // Cache which pattern vars matched
-        var matched = rule.Strings.ToDictionary(
-            kvp => kvp.Key,
-            kvp => PatternMatches(kvp.Value, raw, ascii),
+        string          metaSection      = ExtractSection(body, "meta");
+        string          stringsSection   = ExtractSection(body, "strings");
+        string          conditionSection = ExtractSection(body, "condition");
+        string          desc             = "";
+        Match           descMatch        = RxMetaDesc.Match(metaSection);
+        Dictionary<string, YaraString> patterns = new Dictionary<string, YaraString>(
             StringComparer.OrdinalIgnoreCase);
 
-        return EvaluateCondition(rule.Condition, matched);
+        if (conditionSection.Length == 0) return null;
+
+        if (descMatch.Success) desc = descMatch.Groups[1].Value;
+
+        foreach (Match lm in RxLiteralDef.Matches(stringsSection))
+        {
+            string varName   = lm.Groups[1].Value;
+            string rawText   = lm.Groups[2].Value;
+            string mods      = lm.Groups[3].Value.ToLowerInvariant();
+            string unescaped = UnescapeString(rawText);
+            bool   noCase    = mods.Contains("nocase");
+            bool   wide      = mods.Contains("wide");
+            bool   hasAscii  = mods.Contains("ascii");
+            bool   fullWord  = mods.Contains("fullword");
+
+            patterns[$"${varName}"] = new LiteralString(unescaped, noCase, wide, hasAscii, fullWord);
+        }
+
+        foreach (Match hm in RxHexDef.Matches(stringsSection))
+        {
+            string varName = hm.Groups[1].Value;
+            string hexBody = hm.Groups[2].Value;
+
+            if (!patterns.ContainsKey($"${varName}"))
+            {
+                patterns[$"${varName}"] = ParseHexString(hexBody);
+            }
+        }
+
+        return new ParsedYaraRule
+        {
+            Name        = name,
+            Description = desc,
+            Severity    = severity,
+            Strings     = patterns,
+            Condition   = conditionSection.Trim(),
+        };
     }
 
-    private static bool EvaluateCondition(string cond, Dictionary<string, bool> matched)
+    private static string ExtractSection(string body, string sectionName)
     {
-        cond = cond.Trim().TrimEnd('}').Trim();
+        MatchCollection matches = RxSectionHeader.Matches(body);
+        string          result  = "";
+        int             idx     = 0;
 
-        if (cond == "any of them") return matched.Values.Any(v => v);
-        if (cond == "all of them") return matched.Values.All(v => v);
+        while (idx < matches.Count && result.Length == 0)
+        {
+            if (matches[idx].Groups[1].Value.Equals(sectionName, StringComparison.OrdinalIgnoreCase))
+            {
+                int start = matches[idx].Index + matches[idx].Length;
+                int end   = idx + 1 < matches.Count ? matches[idx + 1].Index : body.Length;
 
-        // Tokenised evaluation of: $a, not $a, $a and $b, $a or $b
-        var tokens = cond.Split([' ', '\t'], StringSplitOptions.RemoveEmptyEntries);
-        return EvalTokens(tokens, 0, matched, out _);
+                result = body[start..end];
+            }
+
+            idx = idx + 1;
+        }
+
+        return result;
     }
 
-    private static bool EvalTokens(string[] toks, int i,
-        Dictionary<string, bool> matched, out int consumed)
+    private static string UnescapeString(string s)
     {
-        consumed = 0;
+        StringBuilder sb   = new StringBuilder(s.Length);
+        int           i    = 0;
+        bool          isEscape = false;
+        char          next = '\0';
+
+        while (i < s.Length)
+        {
+            isEscape = s[i] == '\\' && i + 1 < s.Length;
+
+            if (!isEscape)
+            {
+                sb.Append(s[i]);
+                i = i + 1;
+                continue;
+            }
+
+            next = s[i + 1];
+
+            if (next == 'x' && i + 3 < s.Length && IsHexChar(s[i + 2]) && IsHexChar(s[i + 3]))
+            {
+                sb.Append((char)Convert.ToByte(s.Substring(i + 2, 2), 16));
+                i = i + 4;
+                continue;
+            }
+
+            sb.Append(next switch
+            {
+                't'  => '\t',
+                'n'  => '\n',
+                'r'  => '\r',
+                '\\' => '\\',
+                '"'  => '"',
+                _    => next
+            });
+
+            i = i + 2;
+        }
+
+        return sb.ToString();
+    }
+
+    private static bool IsHexChar(char c)
+    {
+        return (c >= '0' && c <= '9')
+            || (c >= 'a' && c <= 'f')
+            || (c >= 'A' && c <= 'F');
+    }
+
+    private static HexString ParseHexString(string hex)
+    {
+        string      cleaned = Regex.Replace(hex, @"/\*.*?\*/", " ", RegexOptions.Singleline);
+        List<byte?> bytes   = new List<byte?>();
+        string[]    tokens  = cleaned.Trim().Split(
+            [' ', '\t', '\n', '\r'],
+            StringSplitOptions.RemoveEmptyEntries);
+
+        foreach (string t in tokens)
+        {
+            if (t == "??" || t == "?")
+            {
+                bytes.Add(null);
+            }
+            else if (t.StartsWith('[') && t.EndsWith(']'))
+            {
+                string inner   = t[1..^1];
+                int    dashPos = inner.IndexOf('-');
+                int    minJump = 0;
+
+                if (dashPos >= 0)
+                {
+                    int.TryParse(inner[..dashPos], out minJump);
+                }
+                else
+                {
+                    int.TryParse(inner, out minJump);
+                }
+
+                for (int k = 0; k < minJump; k++) bytes.Add(null);
+            }
+            else if (t.Length == 2
+                && byte.TryParse(t, System.Globalization.NumberStyles.HexNumber, null, out byte b))
+            {
+                bytes.Add(b);
+            }
+        }
+
+        return new HexString(bytes.ToArray());
+    }
+
+    private static bool EvaluateRule(ParsedYaraRule rule, byte[] raw)
+    {
+        Dictionary<string, bool> hits = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (KeyValuePair<string, YaraString> kv in rule.Strings)
+        {
+            hits[kv.Key] = PatternMatches(kv.Value, raw);
+        }
+
+        return EvaluateCondition(rule.Condition, hits);
+    }
+
+    private static bool EvaluateCondition(string cond, Dictionary<string, bool> hits)
+    {
+        string normalized = Regex.Replace(cond.Trim(), @"\s+", " ");
+        string lower      = normalized.ToLowerInvariant();
+        Match  countMatch = Match.Empty;
+        Match  ofGroup    = Match.Empty;
+
+        if (lower == "any of them")
+        {
+            return hits.Count > 0 && hits.Values.Any(v => v);
+        }
+
+        if (lower == "all of them")
+        {
+            return hits.Count > 0 && hits.Values.All(v => v);
+        }
+
+        countMatch = Regex.Match(normalized, @"^(\d+)\s+of\s+them$", RegexOptions.IgnoreCase);
+
+        if (countMatch.Success)
+        {
+            int needed = int.Parse(countMatch.Groups[1].Value);
+            return hits.Values.Count(v => v) >= needed;
+        }
+
+        ofGroup = Regex.Match(
+            normalized,
+            @"^(any|all)\s+of\s+\(([^)]+)\)$",
+            RegexOptions.IgnoreCase);
+
+        if (ofGroup.Success)
+        {
+            bool   wantAll = ofGroup.Groups[1].Value.Equals("all", StringComparison.OrdinalIgnoreCase);
+            bool[] vals    = ResolveVarList(ofGroup.Groups[2].Value, hits);
+
+            return wantAll ? vals.All(v => v) : vals.Any(v => v);
+        }
+
+        string[] tokens = normalized.Split([' ', '\t'], StringSplitOptions.RemoveEmptyEntries);
+
+        return EvalTokens(tokens, 0, hits);
+    }
+
+    private static bool[] ResolveVarList(string inner, Dictionary<string, bool> hits)
+    {
+        string[]   parts   = inner.Split(',');
+        List<bool> results = new List<bool>();
+
+        foreach (string part in parts)
+        {
+            string name = part.Trim();
+
+            if (name.EndsWith('*'))
+            {
+                string prefix = name[..^1];
+
+                foreach (KeyValuePair<string, bool> kv in hits)
+                {
+                    if (kv.Key.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                    {
+                        results.Add(kv.Value);
+                    }
+                }
+            }
+            else if (name.StartsWith('$'))
+            {
+                results.Add(hits.TryGetValue(name, out bool v) && v);
+            }
+        }
+
+        return results.ToArray();
+    }
+
+    private static bool EvalTokens(string[] toks, int start, Dictionary<string, bool> hits)
+    {
+        int    i      = start;
+        bool   negate = false;
+        bool   left   = false;
+        string op     = "";
+
         if (i >= toks.Length) return false;
 
-        bool negate = false;
-        if (toks[i].Equals("not", StringComparison.OrdinalIgnoreCase)) { negate = true; i++; consumed++; }
-
-        bool left;
-        if (toks[i].StartsWith('$'))
+        if (toks[i].Equals("not", StringComparison.OrdinalIgnoreCase))
         {
-            left = matched.TryGetValue(toks[i], out bool v) && v;
-            consumed++;
-            i++;
+            negate = true;
+            i      = i + 1;
         }
-        else { consumed = 0; return false; }
+
+        if (i >= toks.Length || !toks[i].StartsWith('$')) return false;
+
+        left = hits.TryGetValue(toks[i], out bool lv) && lv;
+        i    = i + 1;
 
         if (negate) left = !left;
 
-        while (i < toks.Length)
+        op = i < toks.Length ? toks[i].ToLowerInvariant() : "";
+
+        while (i < toks.Length && (op == "and" || op == "or"))
         {
-            string op = toks[i].ToLowerInvariant();
-            if (op != "and" && op != "or") break;
-            i++; consumed++;
+            bool rightNegate  = false;
+            bool rightUnknown = false;
+            bool right        = false;
 
-            bool rightNegate = false;
+            i = i + 1;
+
             if (i < toks.Length && toks[i].Equals("not", StringComparison.OrdinalIgnoreCase))
-            { rightNegate = true; i++; consumed++; }
+            {
+                rightNegate = true;
+                i           = i + 1;
+            }
 
-            if (i >= toks.Length || !toks[i].StartsWith('$')) break;
-            bool right = matched.TryGetValue(toks[i], out bool rv) && rv;
-            if (rightNegate) right = !right;
-            i++; consumed++;
+            if (i >= toks.Length || !toks[i].StartsWith('$'))
+            {
+                rightUnknown = true;
+            }
 
-            left = op == "and" ? left && right : left || right;
+            if (rightUnknown)
+            {
+                if (op == "and") return false;
+
+                op = "";
+            }
+            else
+            {
+                right = hits.TryGetValue(toks[i], out bool rv) && rv;
+
+                if (rightNegate) right = !right;
+
+                i    = i + 1;
+                left = op == "and" ? left && right : left || right;
+                op   = i < toks.Length ? toks[i].ToLowerInvariant() : "";
+            }
         }
 
         return left;
     }
 
-    private static bool PatternMatches(YaraPattern pattern, byte[] raw, string ascii)
-        => pattern switch
-        {
-            LiteralPattern lp => ascii.Contains(lp.Text,
-                lp.NoCase ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal),
-            HexPattern hp => ContainsWildcardBytes(raw.AsSpan(), hp.Bytes),
-            _             => false
-        };
-
-    // ── Low-level helpers ─────────────────────────────────────────────────────
-
-    private static bool ContainsBytes(ReadOnlySpan<byte> hay, byte[] needle)
-        => needle.Length > 0 && hay.Length >= needle.Length
-           && hay.IndexOf(needle.AsSpan()) >= 0;
-
-    private static bool ContainsWildcardBytes(ReadOnlySpan<byte> hay, byte?[] pat)
+    private static bool PatternMatches(YaraString pattern, byte[] raw)
     {
-        if (pat.Length == 0 || hay.Length < pat.Length) return false;
-        for (int i = 0; i <= hay.Length - pat.Length; i++)
+        bool wantAscii = false;
+        bool wantWide  = false;
+        bool result    = false;
+
+        if (pattern is LiteralString ls)
         {
-            bool ok = true;
-            for (int j = 0; j < pat.Length; j++)
+            wantAscii = ls.HasAscii || !ls.Wide;
+            wantWide  = ls.Wide;
+
+            if (wantAscii && !result)
             {
-                if (pat[j].HasValue && hay[i + j] != pat[j]!.Value) { ok = false; break; }
+                byte[] needle = Encoding.ASCII.GetBytes(ls.Text);
+
+                result = ls.FullWord
+                    ? ContainsFullWordBytes(raw, needle, ls.NoCase)
+                    : ContainsBytesNC(raw.AsSpan(), needle, ls.NoCase);
             }
-            if (ok) return true;
+
+            if (wantWide && !result)
+            {
+                byte[] wideBytes = Encoding.Unicode.GetBytes(ls.Text);
+                result = ContainsBytes(raw.AsSpan(), wideBytes);
+            }
         }
-        return false;
+        else if (pattern is HexString hs)
+        {
+            result = ContainsWildcardBytes(raw.AsSpan(), hs.Bytes);
+        }
+
+        return result;
     }
 
-    private static string ToAsciiBlob(byte[] raw)
+    private static bool ContainsBytesNC(ReadOnlySpan<byte> haystack, byte[] needle, bool noCase)
     {
-        var sb = new StringBuilder(raw.Length);
-        foreach (byte b in raw)
-            sb.Append(b >= 0x20 && b < 0x7F ? (char)b : ' ');
-        return sb.ToString();
+        int  limit = haystack.Length - needle.Length;
+        bool found = false;
+        int  i     = 0;
+
+        if (needle.Length == 0 || haystack.Length < needle.Length) return false;
+
+        if (!noCase) return haystack.IndexOf(needle.AsSpan()) >= 0;
+
+        while (i <= limit && !found)
+        {
+            bool ok = true;
+            int  j  = 0;
+
+            while (j < needle.Length && ok)
+            {
+                byte h  = haystack[i + j];
+                byte n  = needle[j];
+                byte hl = (h >= 65 && h <= 90) ? (byte)(h + 32) : h;
+                byte nl = (n >= 65 && n <= 90) ? (byte)(n + 32) : n;
+
+                ok = hl == nl;
+                j  = j + 1;
+            }
+
+            if (ok) found = true;
+
+            i = i + 1;
+        }
+
+        return found;
+    }
+
+    private static bool ContainsFullWordBytes(byte[] raw, byte[] needle, bool noCase)
+    {
+        int  limit   = raw.Length - needle.Length;
+        bool matched = false;
+        int  i       = 0;
+
+        if (needle.Length == 0 || raw.Length < needle.Length) return false;
+
+        while (i <= limit && !matched)
+        {
+            bool hits     = ContainsBytesNC(raw.AsSpan(i, needle.Length), needle, noCase);
+            bool beforeOk = i == 0 || !IsWordByte(raw[i - 1]);
+            bool afterOk  = i + needle.Length >= raw.Length || !IsWordByte(raw[i + needle.Length]);
+
+            if (hits && beforeOk && afterOk)
+            {
+                matched = true;
+            }
+
+            i = i + 1;
+        }
+
+        return matched;
+    }
+
+    private static bool IsWordByte(byte b)
+    {
+        return (b >= (byte)'a' && b <= (byte)'z')
+            || (b >= (byte)'A' && b <= (byte)'Z')
+            || (b >= (byte)'0' && b <= (byte)'9')
+            ||  b == (byte)'_';
+    }
+
+    private static bool ContainsBytes(ReadOnlySpan<byte> haystack, byte[] needle)
+    {
+        if (needle.Length == 0 || haystack.Length < needle.Length) return false;
+        return haystack.IndexOf(needle.AsSpan()) >= 0;
+    }
+
+    private static bool ContainsWildcardBytes(ReadOnlySpan<byte> haystack, byte?[] pattern)
+    {
+        int  limit = haystack.Length - pattern.Length;
+        bool found = false;
+        int  i     = 0;
+
+        if (pattern.Length == 0 || haystack.Length < pattern.Length) return false;
+
+        while (i <= limit && !found)
+        {
+            bool ok = true;
+            int  j  = 0;
+
+            while (j < pattern.Length && ok)
+            {
+                if (pattern[j].HasValue && haystack[i + j] != pattern[j]!.Value)
+                {
+                    ok = false;
+                }
+
+                j = j + 1;
+            }
+
+            if (ok) found = true;
+
+            i = i + 1;
+        }
+
+        return found;
     }
 }

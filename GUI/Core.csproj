@@ -54,6 +54,15 @@
     2. Copy its DLL into our obj/refs/ subfolder — a location the WPF BAML temp project
        will not clean — so it is always available for MarkupCompilePass1 and CoreCompile.
   -->
+  <ItemGroup>
+    <Content Include="YaraRules\**\*.yar">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="YaraRules\**\*.yara">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
   <Target Name="EnsureLibraryRef" BeforeTargets="MarkupCompilePass1;ResolveAssemblyReferences">
     <MSBuild Projects="..\Noodle\Library.csproj" Targets="Build" BuildInParallel="false" Properties="Configuration=$(Configuration)" />
     <Message Text="EnsureLibraryRef: src=$(LibrarySrcDll) exists=$([System.IO.File]::Exists('$(LibrarySrcDll)'))" Importance="High" />

@@ -3,27 +3,39 @@ using Noodle.Core.Models;
 
 namespace Noodle.Core.Services;
 
-/// <summary>
-/// Disassembles the entry-point region of a PE binary and flags suspicious
-/// instruction patterns: packer stubs, shellcode tricks, anti-debug sequences.
-/// </summary>
 public sealed class AsmAnalyzer
 {
     private const int MaxBytes = 512;
 
     public IEnumerable<Detection> Analyze(string filePath, PEInfo peInfo)
     {
-        var epBytes = ReadEntryPointBytes(filePath, peInfo);
+        byte[]             epBytes      = ReadEntryPointBytes(filePath, peInfo);
+        List<Instruction>  instructions = [];
+        bool               hasPushad    = false;
+        bool               hasPopad     = false;
+        int                maxNops      = 0;
+        int                curNops      = 0;
+        int                int3Count    = 0;
+        bool               hasInt2d     = false;
+        bool               hasPicTrick  = false;
+        int                picIdx       = 0;
+        bool               hasXorLoop   = false;
+        bool               hasTailJmp   = false;
+        ulong              tailTarget   = 0;
+        int                xorCount     = 0;
+        int                stosCount    = 0;
+        int                movsCount    = 0;
+
         if (epBytes.Length < 4) yield break;
 
-        var instructions = Disassemble(epBytes, peInfo.IsX64, peInfo.EntryPoint);
+        instructions = Disassemble(epBytes, peInfo.IsX64, peInfo.EntryPoint);
+
         if (instructions.Count == 0) yield break;
 
-        // ── Packer stub: PUSHAD / POPAD (32-bit only) ────────────────────────
         if (!peInfo.IsX64)
         {
-            bool hasPushad = instructions.Any(i => i.Mnemonic == Mnemonic.Pushad);
-            bool hasPopad  = instructions.Any(i => i.Mnemonic == Mnemonic.Popad);
+            hasPushad = instructions.Any(i => i.Mnemonic == Mnemonic.Pushad);
+            hasPopad  = instructions.Any(i => i.Mnemonic == Mnemonic.Popad);
 
             if (hasPushad && hasPopad)
                 yield return new Detection(
@@ -37,36 +49,32 @@ public sealed class AsmAnalyzer
                     Severity.Suspicious, DetectionCategory.Packing);
         }
 
-        // ── NOP sled ─────────────────────────────────────────────────────────
-        int maxNops = 0, curNops = 0;
-        foreach (var instr in instructions)
+        foreach (Instruction instr in instructions)
         {
-            if (instr.Mnemonic == Mnemonic.Nop) { curNops++; maxNops = Math.Max(maxNops, curNops); }
+            if (instr.Mnemonic == Mnemonic.Nop) { curNops = curNops + 1; maxNops = Math.Max(maxNops, curNops); }
             else curNops = 0;
         }
+
         if (maxNops >= 8)
             yield return new Detection(
                 $"NOP Sled ({maxNops} bytes)",
                 $"Entry point contains {maxNops} consecutive NOP instructions — common padding technique in shellcode and exploits.",
                 Severity.Dangerous, DetectionCategory.AsmPattern);
 
-        // ── RDTSC anti-timing ─────────────────────────────────────────────────
         if (instructions.Any(i => i.Mnemonic == Mnemonic.Rdtsc))
             yield return new Detection(
                 "RDTSC Anti-Debug (Timing)",
                 "RDTSC instruction at entry point — used for timing-based debugger detection; execution is measurably slower under a debugger.",
                 Severity.Suspicious, DetectionCategory.AntiDebug);
 
-        // ── CPUID anti-VM ─────────────────────────────────────────────────────
         if (instructions.Any(i => i.Mnemonic == Mnemonic.Cpuid))
             yield return new Detection(
                 "CPUID Anti-VM Check",
                 "CPUID instruction at entry point — used to query hypervisor vendor strings and detect virtual machine environments.",
                 Severity.Suspicious, DetectionCategory.Evasion);
 
-        // ── INT3 / INT 0x2D anti-debug traps ─────────────────────────────────
-        int int3Count = instructions.Count(i => i.Mnemonic == Mnemonic.Int3);
-        bool hasInt2d = instructions.Any(i =>
+        int3Count = instructions.Count(i => i.Mnemonic == Mnemonic.Int3);
+        hasInt2d  = instructions.Any(i =>
             i.Mnemonic == Mnemonic.Int &&
             i.Op0Kind  == OpKind.Immediate8 &&
             i.GetImmediate(0) == 0x2D);
@@ -83,69 +91,77 @@ public sealed class AsmAnalyzer
                 "INT 0x2D detected — Windows-specific anti-debugging interrupt that behaves differently when a debugger is attached.",
                 Severity.Suspicious, DetectionCategory.AntiDebug);
 
-        // ── GetEIP / PIC trick: CALL $+5 followed by POP ─────────────────────
-        for (int i = 0; i < instructions.Count - 1; i++)
+        while (picIdx < instructions.Count - 1 && !hasPicTrick)
         {
-            var call = instructions[i];
-            var pop  = instructions[i + 1];
-            if (call.Mnemonic == Mnemonic.Call &&
-                (ulong)call.NearBranch64 == call.NextIP &&
-                pop.Mnemonic == Mnemonic.Pop)
-            {
-                yield return new Detection(
-                    "GetEIP / PIC Shellcode Trick",
-                    "CALL $+5 followed by POP — position-independent code trick used in shellcode and packers to obtain the current instruction pointer at runtime.",
-                    Severity.Dangerous, DetectionCategory.AsmPattern);
-                break;
-            }
+            Instruction call = instructions[picIdx];
+            Instruction pop  = instructions[picIdx + 1];
+
+            hasPicTrick = call.Mnemonic == Mnemonic.Call
+                && (ulong)call.NearBranch64 == call.NextIP
+                && pop.Mnemonic == Mnemonic.Pop;
+
+            picIdx = picIdx + 1;
         }
 
-        // ── XOR decryption loop ───────────────────────────────────────────────
-        bool hasXorLoop = false;
-        for (int i = 0; i < instructions.Count && !hasXorLoop; i++)
+        if (hasPicTrick)
+            yield return new Detection(
+                "GetEIP / PIC Shellcode Trick",
+                "CALL $+5 followed by POP — position-independent code trick used in shellcode and packers to obtain the current instruction pointer at runtime.",
+                Severity.Dangerous, DetectionCategory.AsmPattern);
+
+        for (int i = 0; i < instructions.Count && !hasXorLoop; i = i + 1)
         {
             if (instructions[i].Mnemonic != Mnemonic.Xor) continue;
 
             int start = Math.Max(0, i - 6);
             int end   = Math.Min(instructions.Count, i + 12);
-            for (int j = start; j < end && !hasXorLoop; j++)
+
+            for (int j = start; j < end && !hasXorLoop; j = j + 1)
             {
-                var jcc = instructions[j];
+                Instruction jcc = instructions[j];
+
                 if (jcc.Mnemonic is Mnemonic.Jne or Mnemonic.Jl or
                     Mnemonic.Jle or Mnemonic.Loop or Mnemonic.Loope or Mnemonic.Loopne)
                 {
                     if (jcc.NearBranch64 < jcc.IP)
+                    {
                         hasXorLoop = true;
+                    }
                 }
             }
         }
+
         if (hasXorLoop)
             yield return new Detection(
                 "XOR Decryption Loop",
                 "XOR instruction combined with a backward conditional branch at entry point — typical of self-decrypting runtime-unpacking stubs.",
                 Severity.Dangerous, DetectionCategory.Packing);
 
-        // ── Tail jump to OEP (large unconditional JMP) ───────────────────────
-        foreach (var jmp in instructions.Where(i => i.Mnemonic == Mnemonic.Jmp))
+        for (int i = 0; i < instructions.Count && !hasTailJmp; i = i + 1)
         {
-            ulong target = jmp.NearBranch64;
-            if (target == 0) continue;
-            long disp = Math.Abs((long)target - (long)jmp.IP);
+            Instruction jmp = instructions[i];
+
+            if (jmp.Mnemonic != Mnemonic.Jmp || jmp.NearBranch64 == 0) continue;
+
+            long disp = Math.Abs((long)jmp.NearBranch64 - (long)jmp.IP);
+
             if (disp > 0x2000)
             {
-                yield return new Detection(
-                    "Tail Jump (OEP Redirect)",
-                    $"Large unconditional JMP to 0x{target:X} at entry point — packed binaries jump to the original entry point after runtime decryption.",
-                    Severity.Dangerous, DetectionCategory.Packing);
-                break;
+                hasTailJmp = true;
+                tailTarget = jmp.NearBranch64;
             }
         }
 
-        // ── Suspicious instruction density: heavy XOR/MOV on memory ──────────
-        int xorCount  = instructions.Count(i => i.Mnemonic == Mnemonic.Xor);
-        int stosCount = instructions.Count(i =>
+        if (hasTailJmp)
+            yield return new Detection(
+                "Tail Jump (OEP Redirect)",
+                $"Large unconditional JMP to 0x{tailTarget:X} at entry point — packed binaries jump to the original entry point after runtime decryption.",
+                Severity.Dangerous, DetectionCategory.Packing);
+
+        xorCount  = instructions.Count(i => i.Mnemonic == Mnemonic.Xor);
+        stosCount = instructions.Count(i =>
             i.Mnemonic is Mnemonic.Stosb or Mnemonic.Stosw or Mnemonic.Stosd or Mnemonic.Stosq);
-        int movsCount = instructions.Count(i =>
+        movsCount = instructions.Count(i =>
             i.Mnemonic is Mnemonic.Movsb or Mnemonic.Movsw or Mnemonic.Movsd or Mnemonic.Movsq);
 
         if (stosCount + movsCount >= 4)
@@ -161,49 +177,58 @@ public sealed class AsmAnalyzer
                 Severity.Suspicious, DetectionCategory.Packing);
     }
 
-    // ── Helpers ──────────────────────────────────────────────────────────────
-
     private static List<Instruction> Disassemble(byte[] bytes, bool is64, uint rva)
     {
-        var reader  = new ByteArrayCodeReader(bytes);
-        var decoder = Decoder.Create(is64 ? 64 : 32, reader, DecoderOptions.None);
+        ByteArrayCodeReader reader  = new ByteArrayCodeReader(bytes);
+        Decoder             decoder = Decoder.Create(is64 ? 64 : 32, reader, DecoderOptions.None);
+        List<Instruction>   list    = new List<Instruction>(64);
+        Instruction         instr   = default;
+
         decoder.IP = rva;
 
-        var list = new List<Instruction>(64);
         while (reader.CanReadByte)
         {
-            decoder.Decode(out var instr);
-            if (instr.IsInvalid) break;
+            decoder.Decode(out instr);
+            if (instr.IsInvalid) return list;
             list.Add(instr);
         }
+
         return list;
     }
 
     private static byte[] ReadEntryPointBytes(string filePath, PEInfo peInfo)
     {
-        try
-        {
-            uint ep = peInfo.EntryPoint;
-            if (ep == 0) return [];
+        uint      ep              = peInfo.EntryPoint;
+        SectionInfo? section       = null;
+        uint      offsetInSection = 0;
+        uint      fileOffset      = 0;
+        uint      available       = 0;
+        int       toRead          = 0;
+        byte[]    buf             = [];
+        int       read            = 0;
 
-            var section = peInfo.Sections.FirstOrDefault(s =>
-                ep >= s.VirtualAddress && ep < s.VirtualAddress + Math.Max(s.VirtualSize, 1u));
-            if (section == default) return [];
+        if (ep == 0) return [];
 
-            uint offsetInSection = ep - section.VirtualAddress;
-            if (offsetInSection >= section.RawSize) return [];
+        section = peInfo.Sections.FirstOrDefault(s =>
+            ep >= s.VirtualAddress && ep < s.VirtualAddress + Math.Max(s.VirtualSize, 1u));
 
-            uint fileOffset = section.PointerToRawData + offsetInSection;
-            uint available  = section.RawSize - offsetInSection;
-            int  toRead     = (int)Math.Min(MaxBytes, available);
-            if (toRead <= 0) return [];
+        if (section is null) return [];
 
-            using var fs = File.OpenRead(filePath);
-            fs.Seek(fileOffset, SeekOrigin.Begin);
-            var buf  = new byte[toRead];
-            int read = fs.Read(buf);
-            return buf[..read];
-        }
-        catch { return []; }
+        offsetInSection = ep - section.VirtualAddress;
+        if (offsetInSection >= section.RawSize) return [];
+
+        fileOffset = section.PointerToRawData + offsetInSection;
+        available  = section.RawSize - offsetInSection;
+        toRead     = (int)Math.Min(MaxBytes, available);
+
+        if (toRead <= 0) return [];
+
+        using FileStream fs = File.OpenRead(filePath);
+
+        fs.Seek(fileOffset, SeekOrigin.Begin);
+        buf  = new byte[toRead];
+        read = fs.Read(buf);
+
+        return buf[..read];
     }
 }

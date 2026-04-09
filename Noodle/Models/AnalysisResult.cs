@@ -5,7 +5,9 @@ namespace Noodle.Core.Models;
 public sealed record AnalysisResult(
     FileMetadata Metadata,
     PEInfo? PE,
+    CompilerInfo? Compiler,
     ImmutableArray<Detection> Detections,
+    ImmutableArray<YaraRuleResult> YaraResults,
     bool IsPE
 )
 {
@@ -18,13 +20,15 @@ public sealed record AnalysisResult(
         get
         {
             int score = 0;
-            foreach (var d in Detections)
-                score += d.Severity switch
+
+            foreach (Detection d in Detections)
+                score = score + d.Severity switch
                 {
                     Severity.Dangerous  => 20,
                     Severity.Suspicious => 5,
                     _                   => 0
                 };
+
             return Math.Min(100, score);
         }
     }

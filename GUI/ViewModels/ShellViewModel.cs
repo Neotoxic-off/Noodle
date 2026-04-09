@@ -10,7 +10,6 @@ public sealed partial class ShellViewModel : ObservableObject
     private readonly IAnalysisService _analysis;
 
     [ObservableProperty] private object _currentPage = null!;
-    [ObservableProperty] private bool   _isHomeActive;
 
     public ShellViewModel(IAnalysisService analysis)
     {
@@ -19,15 +18,8 @@ public sealed partial class ShellViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void GoHome()
-    {
-        CurrentPage  = new DropViewModel(_analysis, this);
-        IsHomeActive = true;
-    }
+    private void GoHome() => CurrentPage = new DropViewModel(_analysis, this);
 
     public void NavigateToAnalysis(AnalysisResult result)
-    {
-        CurrentPage  = new AnalysisViewModel(result, this);
-        IsHomeActive = true;
-    }
+        => CurrentPage = new AnalysisViewModel(result, this);
 }

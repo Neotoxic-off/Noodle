@@ -6,18 +6,14 @@
     <Border Background="{Binding TagBackground, RelativeSource={RelativeSource AncestorType=UserControl}}"
             BorderBrush="{Binding TagBorderBrush, RelativeSource={RelativeSource AncestorType=UserControl}}"
             BorderThickness="1"
-            CornerRadius="16"
-            Padding="10,5">
+            CornerRadius="10"
+            Padding="10,4">
         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-            <Ellipse Width="6" Height="6"
-                     Fill="{Binding TagForeground, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                     Margin="0,0,6,0"
-                     VerticalAlignment="Center"/>
             <TextBlock Text="{Binding Label, RelativeSource={RelativeSource AncestorType=UserControl}}"
                        Foreground="{Binding TagForeground, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                       FontFamily="Segoe UI Variable, Segoe UI"
-                       FontSize="12"
-                       FontWeight="Medium"
+                       FontFamily="Consolas, Courier New"
+                       FontSize="11"
+                       FontWeight="Bold"
                        VerticalAlignment="Center"/>
         </StackPanel>
     </Border>

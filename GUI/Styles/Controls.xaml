@@ -305,6 +305,74 @@
     </Style>
 
     <!-- ══════════════════════════════════════════
+         TABS
+    ══════════════════════════════════════════ -->
+
+    <Style TargetType="TabItem">
+        <Setter Property="Background"      Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Padding"         Value="16,10"/>
+        <Setter Property="Cursor"          Value="Hand"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="TabItem">
+                    <Border x:Name="Root"
+                            Padding="{TemplateBinding Padding}"
+                            BorderThickness="0,0,0,2"
+                            BorderBrush="Transparent">
+                        <TextBlock x:Name="Label"
+                                   Text="{TemplateBinding Header}"
+                                   FontFamily="Consolas, Courier New"
+                                   FontSize="10"
+                                   FontWeight="Bold"
+                                   Foreground="{DynamicResource Br.Text.Secondary}"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter TargetName="Root"  Property="BorderBrush" Value="{DynamicResource Br.Accent}"/>
+                            <Setter TargetName="Label" Property="Foreground"  Value="{DynamicResource Br.Accent}"/>
+                        </Trigger>
+                        <MultiTrigger>
+                            <MultiTrigger.Conditions>
+                                <Condition Property="IsMouseOver" Value="True"/>
+                                <Condition Property="IsSelected"  Value="False"/>
+                            </MultiTrigger.Conditions>
+                            <Setter TargetName="Label" Property="Foreground" Value="{DynamicResource Br.Text.Primary}"/>
+                        </MultiTrigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style TargetType="TabControl">
+        <Setter Property="Background"      Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Padding"         Value="0"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="TabControl">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+                        <Border Grid.Row="0"
+                                BorderBrush="{DynamicResource Br.Border}"
+                                BorderThickness="0,0,0,1">
+                            <TabPanel IsItemsHost="True"
+                                      Background="Transparent"
+                                      Margin="20,0,0,0"/>
+                        </Border>
+                        <ContentPresenter Grid.Row="1"
+                                          ContentSource="SelectedContent"/>
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ══════════════════════════════════════════
          TOOLTIP — dark terminal style
     ══════════════════════════════════════════ -->
 
