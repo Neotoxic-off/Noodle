@@ -15,15 +15,16 @@ rule Lang_Python_PyInstaller {
 // severity: safe
 rule Lang_Python_Runtime {
     meta:
-        description = "Python script compiled to executable — Python DLL imported"
+        description = "Python script compiled to executable — Python C API or runtime DLL present"
     strings:
-        $py38  = "python38.dll" nocase ascii
-        $py39  = "python39.dll" nocase ascii
-        $py310 = "python310.dll" nocase ascii
-        $py311 = "python311.dll" nocase ascii
-        $py312 = "python312.dll" nocase ascii
-        $py313 = "python313.dll" nocase ascii
-        $py314 = "python314.dll" nocase ascii
+        // Stable C API functions (unchanged across Python 2–4+)
+        $init    = "Py_Initialize" ascii
+        $eval    = "PyEval_EvalCode" ascii
+        $import  = "PyImport_ImportModule" ascii
+        $run     = "PyRun_SimpleString" ascii
+        // Generic DLL prefix — matches python38.dll, python312.dll, python315.dll, etc.
+        $py3dll  = "python3" nocase ascii
+        $py2dll  = "python27.dll" nocase ascii
     condition:
         any of them
 }

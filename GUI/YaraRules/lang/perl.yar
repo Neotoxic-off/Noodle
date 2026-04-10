@@ -1,20 +1,28 @@
 // severity: safe
-rule Lang_Perl {
+rule Lang_Perl_PAR {
     meta:
-        description = "Perl binary or PAR::Packer bundled executable"
+        description = "Perl bundled with PAR::Packer"
     strings:
         $par1   = "PAR::Packer" ascii
-        $par2   = "par.pl" ascii nocase
+        $par2   = "par.pl" nocase ascii
         $parenv = "PAR_TEMP" ascii
-        $perlrt = "perl58.dll" nocase ascii
-        $perlrt2 = "perl510.dll" nocase ascii
-        $perlrt3 = "perl512.dll" nocase ascii
-        $perlrt4 = "perl516.dll" nocase ascii
-        $perlrt5 = "perl518.dll" nocase ascii
-        $perlrt6 = "perl520.dll" nocase ascii
-        $perlrt7 = "perl522.dll" nocase ascii
-        $perlmain = "perl_alloc" ascii
     condition:
-        any of ($par1, $par2, $parenv, $perlmain) or
-        any of ($perlrt, $perlrt2, $perlrt3, $perlrt4, $perlrt5, $perlrt6, $perlrt7)
+        any of them
+}
+
+// severity: safe
+rule Lang_Perl_Runtime {
+    meta:
+        description = "Perl binary — stable Perl embedding C API present"
+    strings:
+        // Stable Perl embedding C API (unchanged across Perl 5.x versions)
+        $alloc    = "perl_alloc" ascii
+        $constr   = "perl_construct" ascii
+        $run      = "perl_run" ascii
+        $destruct = "perl_destruct" ascii
+        $free     = "perl_free" ascii
+        $newxs    = "newXS" ascii
+        $bootsub  = "boot_DynaLoader" ascii
+    condition:
+        2 of them
 }

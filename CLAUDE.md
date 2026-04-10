@@ -6,27 +6,27 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```bash
 # Build (use ~/.dotnet/dotnet — requires .NET 10 SDK)
-~/.dotnet/dotnet build GUI/Core.csproj
+~/.dotnet/dotnet build GUI/Noodle.App.csproj
 
 # Run the GUI application (requires Windows — WPF is Windows-only)
-~/.dotnet/dotnet run --project GUI/Core.csproj
+~/.dotnet/dotnet run --project GUI/Noodle.App.csproj
 ```
 
-The build is a single step: `GUI/Core.csproj` depends on `Noodle/Library.csproj` and builds it
-automatically. On Linux with `EnableWindowsTargeting`, the project uses a custom `AddLibraryReference`
-MSBuild target to avoid a cross-compile race condition with WPF BAML compilation.
+The build is a single step: `GUI/Noodle.App.csproj` depends on `Noodle/Noodle.Core.csproj` and
+builds it automatically. On Linux with `EnableWindowsTargeting`, the project uses a custom
+`EnsureLibraryRef` MSBuild target to avoid a cross-compile race condition with WPF BAML compilation.
 
 There are no test projects currently.
 
 ## Architecture
 
 Noodle is a WPF desktop application for analyzing PE (Portable Executable) binary files.
-It is split into two C# projects and uses an internal `UI/` library that was merged into GUI/:
+It is split into two C# projects:
 
-- **Noodle/** (`Library.csproj`, `net10.0-windows`) — Core analysis library
-- **GUI/** (`Core.csproj`, `net10.0-windows`) — WPF application; contains all UI code
+- **Noodle/** (`Noodle.Core.csproj`, `net10.0-windows`) — Core analysis library
+- **GUI/** (`Noodle.App.csproj`, `net10.0-windows`) — WPF application; contains all UI code
 
-The solution file is `Noodle/Noodle.slnx` (modern `.slnx` format, .NET 10 SDK only).
+The solution file is `Noodle.slnx` at the repo root (modern `.slnx` format, .NET 10 SDK only).
 
 ### Library layer (`Noodle/`)
 
@@ -92,6 +92,8 @@ and brush definitions. Swapped at runtime by `ThemeManager`.
 
 ### Build notes
 
-- The Library uses `ReferenceOutputAssembly=false` ProjectReference + a custom `AddLibraryReference`
+- `Noodle.Core.csproj` uses `ReferenceOutputAssembly=false` ProjectReference + a custom `EnsureLibraryRef`
   MSBuild target to work around a WPF BAML cross-compilation race condition on Linux.
-- `YaraSharp` was removed (targets .NET Framework only). The `YaraScanner` class is a no-op stub.
+- `YaraScanner` is a custom pure-.NET YARA-compatible engine (no native lib). String needles are
+  pre-computed at startup. Scanning runs parallel with `ProcessorCount/4` threads at `BelowNormal`
+  priority to avoid saturating the CPU.

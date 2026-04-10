@@ -44,7 +44,10 @@ public sealed class YaraScanner
         bool NoCase,
         bool Wide,
         bool HasAscii,
-        bool FullWord) : YaraString;
+        bool FullWord,
+        byte[] AsciiNeedle,
+        byte[]? AsciiNeedleLower,
+        byte[]? WideNeedle) : YaraString;
 
     private sealed record HexString(byte?[] Bytes) : YaraString;
 
@@ -81,11 +84,13 @@ public sealed class YaraScanner
 
         ParallelOptions opts = new ParallelOptions
         {
-            MaxDegreeOfParallelism = Math.Max(1, Environment.ProcessorCount / 2)
+            MaxDegreeOfParallelism = Math.Max(1, Environment.ProcessorCount / 4)
         };
 
         Parallel.For(0, total, opts, i =>
         {
+            Thread.CurrentThread.Priority = ThreadPriority.BelowNormal;
+
             ParsedYaraRule rule = _customRules[i];
             bool matched = EvaluateRule(rule, raw, rawLower);
             string desc = rule.Description.Length > 0
@@ -247,7 +252,13 @@ public sealed class YaraScanner
             bool hasAscii = mods.Contains("ascii");
             bool fullWord = mods.Contains("fullword");
 
-            patterns[$"${varName}"] = new LiteralString(unescaped, noCase, wide, hasAscii, fullWord);
+            byte[] asciiNeedle = Encoding.ASCII.GetBytes(unescaped);
+            byte[]? asciiNeedleLower = noCase ? LowerBytes(asciiNeedle) : null;
+            byte[]? wideNeedle = wide ? Encoding.Unicode.GetBytes(unescaped) : null;
+
+            patterns[$"${varName}"] = new LiteralString(
+                unescaped, noCase, wide, hasAscii, fullWord,
+                asciiNeedle, asciiNeedleLower, wideNeedle);
         }
 
         foreach (Match hm in RxHexDef.Matches(stringsSection))
@@ -535,54 +546,46 @@ public sealed class YaraScanner
 
     private static bool PatternMatches(YaraString pattern, byte[] raw, byte[] rawLower)
     {
-        bool wantAscii = false;
-        bool wantWide = false;
-        bool result = false;
-
         if (pattern is LiteralString ls)
         {
-            wantAscii = ls.HasAscii || !ls.Wide;
-            wantWide = ls.Wide;
+            bool wantAscii = ls.HasAscii || !ls.Wide;
 
-            if (wantAscii && !result)
+            if (wantAscii)
             {
-                byte[] needle = Encoding.ASCII.GetBytes(ls.Text);
-
-                result = ls.FullWord
-                    ? ContainsFullWordBytes(raw, rawLower, needle, ls.NoCase)
-                    : ContainsBytesNC(raw, rawLower, needle, ls.NoCase);
+                bool hit = ls.FullWord
+                    ? ContainsFullWordBytes(raw, rawLower, ls.AsciiNeedle, ls.NoCase, ls.AsciiNeedleLower)
+                    : ContainsBytesNC(raw, rawLower, ls.AsciiNeedle, ls.NoCase, ls.AsciiNeedleLower);
+                if (hit) return true;
             }
 
-            if (wantWide && !result)
+            if (ls.Wide && ls.WideNeedle != null)
             {
-                byte[] wideBytes = Encoding.Unicode.GetBytes(ls.Text);
-                result = ContainsBytes(raw.AsSpan(), wideBytes);
+                if (ContainsBytes(raw.AsSpan(), ls.WideNeedle)) return true;
             }
-        }
-        else if (pattern is HexString hs)
-        {
-            result = ContainsWildcardBytes(raw.AsSpan(), hs.Bytes);
+
+            return false;
         }
 
-        return result;
+        if (pattern is HexString hs)
+            return ContainsWildcardBytes(raw.AsSpan(), hs.Bytes);
+
+        return false;
     }
 
-    private static bool ContainsBytesNC(byte[] raw, byte[] rawLower, byte[] needle, bool noCase)
+    private static bool ContainsBytesNC(byte[] raw, byte[] rawLower, byte[] needle, bool noCase, byte[]? needleLower)
     {
         if (needle.Length == 0 || raw.Length < needle.Length) return false;
 
         if (!noCase) return raw.AsSpan().IndexOf(needle.AsSpan()) >= 0;
 
-        byte[] needleLower = LowerBytes(needle);
-
-        return rawLower.AsSpan().IndexOf(needleLower.AsSpan()) >= 0;
+        return rawLower.AsSpan().IndexOf((needleLower ?? LowerBytes(needle)).AsSpan()) >= 0;
     }
 
-    private static bool ContainsFullWordBytes(byte[] raw, byte[] rawLower, byte[] needle, bool noCase)
+    private static bool ContainsFullWordBytes(byte[] raw, byte[] rawLower, byte[] needle, bool noCase, byte[]? needleLower)
     {
         if (needle.Length == 0 || raw.Length < needle.Length) return false;
 
-        byte[] search = noCase ? LowerBytes(needle) : needle;
+        byte[] search = noCase ? (needleLower ?? LowerBytes(needle)) : needle;
         ReadOnlySpan<byte> haystack = noCase ? rawLower.AsSpan() : raw.AsSpan();
         int offset = 0;
         bool matched = false;

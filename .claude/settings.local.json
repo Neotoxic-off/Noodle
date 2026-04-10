@@ -7,7 +7,10 @@
       "Read(//mnt/c/Users/neo/**)",
       "Bash(dotnet build:*)",
       "Bash(\"/c/Program Files/dotnet/dotnet\" build GUI/Core.csproj)",
-      "Bash(\"/c/Program Files/dotnet/dotnet\" build D:/Code/Github/Noodle/GUI/Core.csproj)"
+      "Bash(\"/c/Program Files/dotnet/dotnet\" build D:/Code/Github/Noodle/GUI/Core.csproj)",
+      "Bash(cp /d/Code/Github/Noodle/GUI/Core.csproj /d/Code/Github/Noodle/GUI/Noodle.App.csproj)",
+      "Bash(cp /d/Code/Github/Noodle/Noodle/Library.csproj /d/Code/Github/Noodle/Noodle/Noodle.Core.csproj)",
+      "Bash(\"/c/Program Files/dotnet/dotnet\" build GUI/Noodle.App.csproj -v quiet)"
     ]
   }
 }

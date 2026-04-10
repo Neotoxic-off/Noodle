@@ -14,8 +14,8 @@ public sealed class SeverityToBrushConverter : IValueConverter
         {
             Severity.Dangerous  => "Br.Danger",
             Severity.Suspicious => "Br.Warning",
-            _                   => "Br.Success"
-        } : "Br.Success";
+            _                   => "Br.Info"
+        } : "Br.Info";
         return Application.Current?.Resources[key] as Brush ?? Brushes.Gray;
     }
 
@@ -31,8 +31,8 @@ public sealed class SeverityToBgBrushConverter : IValueConverter
         {
             Severity.Dangerous  => "Br.DangerBg",
             Severity.Suspicious => "Br.WarningBg",
-            _                   => "Br.SuccessBg"
-        } : "Br.SuccessBg";
+            _                   => "Br.InfoBg"
+        } : "Br.InfoBg";
         return Application.Current?.Resources[key] as Brush ?? Brushes.Transparent;
     }
 

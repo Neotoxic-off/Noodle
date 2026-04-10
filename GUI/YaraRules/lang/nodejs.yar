@@ -3,13 +3,14 @@ rule Lang_NodeJS {
     meta:
         description = "Node.js binary — V8 / libuv / napi references"
     strings:
-        $v8iso  = "v8::Isolate" ascii
-        $libuv  = "libuv" ascii
-        $uvrun  = "uv_run" ascii
-        $napi   = "napi_" ascii
-        $npm    = "node_modules" ascii
+        $v8iso = "v8::Isolate" ascii
+        $libuv = "libuv" ascii
+        $uvrun = "uv_run" ascii
+        $napi  = "napi_" ascii
     condition:
-        2 of them
+        // Require at least one V8/napi indicator paired with libuv
+        // node_modules alone is too generic (appears in any bundled web app)
+        ($v8iso or $napi) and ($libuv or $uvrun)
 }
 
 // severity: safe

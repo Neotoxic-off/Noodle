@@ -38,7 +38,7 @@
 
   <!-- Build Library but do not auto-reference its output (we manage that explicitly). -->
   <ItemGroup>
-    <ProjectReference Include="..\Noodle\Library.csproj" ReferenceOutputAssembly="false" Private="false" />
+    <ProjectReference Include="..\Noodle\Noodle.Core.csproj" ReferenceOutputAssembly="false" Private="false" />
   </ItemGroup>
 
   <!-- Reference the stable copy in our own refs/ subfolder. -->
@@ -64,7 +64,7 @@
   </ItemGroup>
 
   <Target Name="EnsureLibraryRef" BeforeTargets="MarkupCompilePass1;ResolveAssemblyReferences">
-    <MSBuild Projects="..\Noodle\Library.csproj" Targets="Build" BuildInParallel="false" Properties="Configuration=$(Configuration)" />
+    <MSBuild Projects="..\Noodle\Noodle.Core.csproj" Targets="Build" BuildInParallel="false" Properties="Configuration=$(Configuration)" />
     <Message Text="EnsureLibraryRef: src=$(LibrarySrcDll) exists=$([System.IO.File]::Exists('$(LibrarySrcDll)'))" Importance="High" />
     <MakeDir Directories="$([System.IO.Path]::GetDirectoryName('$(LibraryRefDll)'))" />
     <Copy SourceFiles="$(LibrarySrcDll)" DestinationFiles="$(LibraryRefDll)" SkipUnchangedFiles="true" />

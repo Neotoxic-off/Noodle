@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="Noodle/Noodle.Core.csproj" />
+  <Project Path="GUI/Noodle.App.csproj" />
+</Solution>

@@ -1,21 +1,25 @@
 // severity: dangerous
 rule Credential_AWS_AccessKey {
     meta:
-        description = "AWS access key ID (AKIA/AROA/ASIA prefix)"
+        description = "AWS access key ID (AKIA/AROA/ASIA prefix) alongside AWS context"
     strings:
-        $akia = "AKIA" ascii
-        $aroa = "AROA" ascii
-        $asia = "ASIA" ascii
+        // Key ID prefixes — 4 chars alone are too short; require AWS infrastructure context
+        $akia     = "AKIA" ascii
+        $aroa     = "AROA" ascii
+        $asia     = "ASIA" ascii
+        // Context strings that confirm AWS usage
+        $aws_svc  = "amazonaws.com" ascii
+        $aws_cred = "aws_access_key_id" nocase ascii
     condition:
-        any of them
+        ($akia or $aroa or $asia) and ($aws_svc or $aws_cred)
 }
 
 // severity: dangerous
 rule Credential_AWS_SecretKey {
     meta:
-        description = "AWS secret key or session environment variable"
+        description = "AWS secret key or session token environment variable"
     strings:
-        $envkey = "AWS_SECRET_ACCESS_KEY" ascii
+        $envkey  = "AWS_SECRET_ACCESS_KEY" ascii
         $envsess = "AWS_SESSION_TOKEN" ascii
         $confkey = "aws_secret_access_key" ascii
     condition:
@@ -38,12 +42,12 @@ rule Credential_GCP_ServiceAccount {
 // severity: dangerous
 rule Credential_Azure_Keys {
     meta:
-        description = "Azure storage or SAS token"
+        description = "Azure storage connection string or SAS token"
     strings:
         $blob = "DefaultEndpointsProtocol=https;AccountName=" ascii
         $sas  = "SharedAccessSignature=" ascii
         $sub  = "AZURE_CLIENT_SECRET" ascii
-        $conn = "azure.storage.account" ascii nocase
+        $conn = "azure.storage.account" nocase ascii
     condition:
         any of them
 }
@@ -53,9 +57,9 @@ rule Credential_DigitalOcean {
     meta:
         description = "DigitalOcean personal access token"
     strings:
-        $dop = "dop_v1_" ascii
-        $doo = "doo_v1_" ascii
-        $dor = "dor_v1_" ascii
+        $dop   = "dop_v1_" ascii
+        $doo   = "doo_v1_" ascii
+        $dor   = "dor_v1_" ascii
         $doenv = "DIGITALOCEAN_TOKEN" ascii
     condition:
         any of them

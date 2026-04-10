@@ -3,14 +3,15 @@ rule Lang_Go {
     meta:
         description = "Go binary — buildinfo section or Go runtime symbols"
     strings:
+        // Stable Go runtime symbols (unchanged across all Go versions)
         $buildinfo = "go.buildinfo" ascii
-        $goversion = "go1." ascii
         $gopanic   = "runtime.gopanic" ascii
-        $gomain    = "main.main" ascii
-        $gothread  = "GoExitThread" ascii
         $gosched   = "runtime.schedule" ascii
         $gostack   = "runtime.newstack" ascii
-        $goroutine = "goroutine" ascii
+        $gothread  = "GoExitThread" ascii
+        $goitab    = "runtime.itab" ascii
+        $gomalloc  = "runtime.mallocgc" ascii
+        $goexit    = "runtime.goexit" ascii
     condition:
-        2 of them
+        $buildinfo or $gopanic or 2 of ($gosched, $gostack, $gothread, $goitab, $gomalloc, $goexit)
 }

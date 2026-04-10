@@ -18,14 +18,14 @@ rule Behavior_Persistence_Registry {
     meta:
         description = "Registry Run key write — classic autorun persistence"
     strings:
-        $setA  = "RegSetValueExA" fullword ascii
-        $setW  = "RegSetValueExW" fullword ascii
-        $runA  = "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run" ascii
-        $runB  = "SOFTWARE\\Wow6432Node\\Microsoft\\Windows\\CurrentVersion\\Run" ascii
-        $runS  = "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\RunOnce" ascii
+        $setA = "RegSetValueExA" fullword ascii
+        $setW = "RegSetValueExW" fullword ascii
+        $runA = "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run" ascii
+        $runB = "SOFTWARE\\Wow6432Node\\Microsoft\\Windows\\CurrentVersion\\Run" ascii
+        $runS = "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\RunOnce" ascii
     condition:
+        // Must have a write API call; the path alone is not enough (appears in scanners/docs)
         ($setA or $setW) and ($runA or $runB or $runS)
-        or $runA or $runB
 }
 
 // severity: suspicious
@@ -57,9 +57,9 @@ rule Behavior_Persistence_Startup {
 // severity: suspicious
 rule Behavior_Persistence_Bootkit {
     meta:
-        description = "Boot sector / bootkit techniques — MBR or VBR access"
+        description = "Boot sector / bootkit techniques — raw disk access"
     strings:
-        $mbr1 = "\\\\.\\\\.\\PhysicalDrive0" ascii nocase
+        $mbr1 = "\\\\.\\PhysicalDrive0" ascii nocase
         $mbr2 = "\\\\.\\HarddiskVolume" ascii nocase
         $raw1 = "DeviceIoControl" fullword ascii
         $raw2 = "IOCTL_DISK_GET_DRIVE_GEOMETRY" ascii
